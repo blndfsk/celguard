@@ -1,0 +1,9 @@
+displayName: Demo Plugin Wasm Rust
+runtime: wasm
+type: middleware
+
+summary: 'a starting point for a plugin written in rust'
+
+testData:
+  rules:
+    - 

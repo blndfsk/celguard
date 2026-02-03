@@ -1,0 +1,15 @@
+[package]
+name = "traefik-filter"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+http-wasm-guest = { path = "../http-wasm-guest" }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+duration-str = "0.19"
+log = "0.4"
+cel = "0.12"
+
+[dev-dependencies]
+mockall = "0.14"
