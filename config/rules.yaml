@@ -1,0 +1,11 @@
+actions:
+  block_useragent:
+    response: { status: 400 }
+
+rules:
+  - name: useragent
+    log: warn
+    tests:
+      - request.header.contains('user-agent') == false
+      - request.header['user-agent'].matches('(?i)python-requests|libwww-perl')
+    action: block_useragent

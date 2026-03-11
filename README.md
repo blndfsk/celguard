@@ -1,83 +1,73 @@
-# traefik-filter
+# celguard
 
-Traefik plugin written in rust. 
+A Traefik plugin written in Rust.
 
-This plugin filters incoming requests dependent on the configuration.
+celguard filters incoming requests based on easy-to-configure rules using the Common Expression Language (CEL).
+
+## Features
+
+- **Easy configuration:** Write rules using the Common Expression Language (CEL), a familiar and powerful syntax.
+- **Request filtering:** Match requests based on any HTTP property (method, path, headers, IP, etc.).
+- **Logging:** Actions can specify log levels for matched requests.
+- **Custom responses:** Return custom HTTP status and body for matched requests.
+- **Traefik integration:** Deploy as a WASM plugin for Traefik.
 
 
-## Building
+## Configuration
 
-if not already installed, add the wasm-target
+### Rule Example
 
-```shell
-rustup target add wasm32-wasip1
-```
+Rules are written in YAML and use CEL expressions for matching:
 
-Build the plugin with
-
-```shell
-make
-```
-
-The artifacts are found in target/plugin/
-
-## Installation
-
-Traefik supports a manual installation.
-
-```shell
-mkdir -p <traefik>/plugins-local/src/pluginfilter/
-cp target/plugin/plugin.wasm <traefik>/plugins-local/src/pluginfilter/
-
-```
-Configure the static configuration (and restart traefik)
 ```yaml
-# Static configuration
+actions:
+  myresponse:
+    log: warn
+    response: { status: 403, body: "forbidden" }
 
-experimental:
-  localPlugins:
-    plugindemowasm:
-      moduleName: pluginfilter
+rules:
+  - name: useragent
+    tests:
+      - request.header.contains('user-agent') == false
+      - request.header['user-agent'].matches('(?i)gpt')
+    action: myresponse
 ```
-Call the middleware from one of your routers
+
+### Request Object
+
+You can match on any part of the request:
+
 ```yaml
-# Dynamic configuration
-
-http:
-  routers:
-    my-router:
-    [...]
-      middlewares:
-        - pluginfilter
-[...]
-  middlewares:
-    pluginfilter:
-      plugin:
-        config:
-          actions:
-            - jail
-            - log
-          jails:
-            - name: short
-              duration: 5h
-          rules:
-            - action: jail.short
-              trigger: request.source_ip=='1.1.1.1'
+request:
+  source_ip: fe80::a41c:cdff:fec1:736a
+  path: "/foobar"
+  method: GET
+  version: HTTP/1.1
+  header:
+    user-agent: curl/123
+    host: whoami.localhost:8080
+    accept: "*/*"
 ```
 
+### CEL Expression Example
+
+```c
+request.header['user-agent'].matches('(?i)curl')
 ```
-{
-  "actions" : [
-    "jail",
-    "log"
-    ],
-  "jails" :[
-      { "name":"short",
-        "duration":"5h"
-      }
-    ],
-  "rules": [
-    {"action":"jail.short", "trigger":"request.source_ip=='1.1.1.1'"}
-  ]
-}
-```
+
+You can experiment with CEL syntax at [playcel.undistro.io](https://playcel.undistro.io/).
+
+## Example Actions
+
+- Log a warning and block requests from certain user agents.
+- Return a custom response for requests missing a header.
+- Allow or deny requests based on IP, method, or path.
+
+## Limitations
+
+- The "jail" feature is unfinished and not documented here.
+
+## Todo
+
+- Complete jail/ban functionality
+- Add more examples and documentation

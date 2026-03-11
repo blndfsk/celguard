@@ -1,9 +1,17 @@
-displayName: Demo Plugin Wasm Rust
+displayName: celguard
 runtime: wasm
 type: middleware
 
-summary: 'a starting point for a plugin written in rust'
+summary: "Easy request filtering for Traefik using Common Expression Language (CEL) configuration (celguard)"
 
 testData:
-  rules:
-    - 
+  config:
+    actions:
+      block_empty_useragent:
+        response: { status: 400 }
+    rules:
+      - name: useragent
+        log: warn
+        tests:
+          - request.header.contains('user-agent') == false
+        action: block_empty_useragent
