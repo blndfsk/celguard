@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 set -eu -o pipefail
 
+plugin="celguard"
+pod=$(podman pod create -p 8080:8080)
+
 function cleanup()
 {
     podman pod rm -f $pod
@@ -9,7 +12,6 @@ function cleanup()
 
 trap 'cleanup' EXIT HUP INT TERM
 
-plugin="celguard"
 cargo build --target wasm32-wasip1
 
 TRAEFIK_ROOT=/opt/traefik
@@ -26,7 +28,6 @@ buildah rm $container
 traefik_container=localhost/$plugin
 traefik_parameter="--experimental.localplugins.$plugin.modulename=$plugin --experimental.localplugins.$plugin.settings.mounts=$ROOT_DIR/config/"
 
-pod=$(podman pod create -p 8080:8080)
 podman run -d --pod $pod --replace --name whoami \
     --label 'traefik.http.routers.whoami.rule=Host(`whoami.localhost`)' \
     --label "traefik.http.routers.whoami.middlewares=$plugin" \

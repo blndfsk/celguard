@@ -39,7 +39,6 @@ impl<'a> Matcher<'a> {
 
     pub fn evaluate<'b>(&'a self, request: &'b host::Request) -> Result<Outcome<'a>> {
         let request = Request::try_from_host(request)?;
-        log::info!("{:?}", request);
         self.eval(&request)
     }
 
@@ -58,6 +57,7 @@ impl<'a> Matcher<'a> {
         Ok(Outcome::NoMatch)
     }
 }
+
 fn to_lower(This(s): This<Arc<String>>) -> String {
     s.to_lowercase()
 }
