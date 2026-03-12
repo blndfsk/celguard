@@ -36,11 +36,6 @@ podman run -d --pod $pod --replace --name whoami \
     --label "traefik.http.routers.echo.service=whoami" \
     --label "traefik.http.middlewares.$plugin.plugin.$plugin" \
     --label "traefik.http.middlewares.$plugin.plugin.$plugin.paths[0]=$ROOT_DIR/config/rules.yaml" \
-    --label "traefik.http.middlewares.$plugin.plugin.$plugin.config.actions.block.response.status=400" \
-    --label "traefik.http.middlewares.$plugin.plugin.$plugin.config.rules[0].name=agent" \
-    --label "traefik.http.middlewares.$plugin.plugin.$plugin.config.rules[0].log=warn" \
-    --label "traefik.http.middlewares.$plugin.plugin.$plugin.config.rules[0].tests[0]=request.header.contains('user-agent') == false" \
-    --label "traefik.http.middlewares.$plugin.plugin.$plugin.config.rules[0].action=block" \
     --label "traefik.http.services.whoami.loadbalancer.server.url=http://localhost:8081" \
     traefik/whoami -port 8081
 

@@ -2,7 +2,8 @@
 
 A Traefik plugin written in Rust.
 
-celguard filters incoming requests based on easy-to-configure rules using the Common Expression Language (CEL).
+This plugin filters incoming requests based on easy-to-configure rules using the Common Expression Language (CEL).
+The intended use is for small sites that want to block or log certain requests without needing a full WAF solution.
 
 ## Features
 
@@ -11,7 +12,6 @@ celguard filters incoming requests based on easy-to-configure rules using the Co
 - **Logging:** Actions can specify log levels for matched requests.
 - **Custom responses:** Return custom HTTP status and body for matched requests.
 - **Traefik integration:** Deploy as a WASM plugin for Traefik.
-
 
 ## Configuration
 
@@ -22,8 +22,9 @@ Rules are written in YAML and use CEL expressions for matching:
 ```yaml
 actions:
   myresponse:
-    log: warn
-    response: { status: 403, body: "forbidden" }
+    log: warn                                            # default: off
+    response: { status: 400, body: "bad request" }       # default: status 200, no body
+    continue: false                                      # default: false
 
 rules:
   - name: useragent
