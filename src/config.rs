@@ -3,7 +3,6 @@ use std::{
     fmt::Debug,
     fs::File,
     io::{self, BufReader, Read},
-    path::Path,
     time::Duration,
 };
 
@@ -95,17 +94,19 @@ fn default_level() -> LevelFilter {
 #[derive(Debug, Deserialize)]
 struct HostConfig {
     #[serde(default)]
-    paths: Vec<Box<Path>>,
+    paths: Vec<String>,
     config: Option<Config>,
 }
 
 pub(crate) fn read() -> Result<Config> {
     let hc: HostConfig = serde_saphyr::from_slice(&host::admin::config()).map_err(Error::from)?;
-
-    read_from(&hc.paths).or(hc.config.ok_or_else(|| Error::msg("config missing")))
+    hc.config.map_or_else(|| read_from(&hc.paths), Ok)
 }
 
-pub fn read_from(paths: &[Box<Path>]) -> Result<Config> {
+pub fn read_from(paths: &[String]) -> Result<Config> {
+    if paths.is_empty() {
+        return Err(Error::msg("no config paths provided"));
+    }
     let readers: Result<Vec<_>, io::Error> = paths
         .iter()
         .map(|f| File::open(f).map(BufReader::new))

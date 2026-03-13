@@ -96,7 +96,6 @@ mod tests {
         // .all() is called on a String, because it tries to iterate over its characters
         // and hits an unimplemented code path converting them to cel objects.
         let req = Request::from_parts(
-            "192.168.1.1",
             "/foo/bar",
             "GET",
             "HTTP/1.1",
@@ -118,7 +117,6 @@ mod tests {
     #[test]
     fn test_request() -> TestResult {
         let req = Request::from_parts(
-            "192.168.1.1",
             "/foo/bar",
             "GET",
             "HTTP/1.1",

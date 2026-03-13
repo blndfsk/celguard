@@ -12,13 +12,13 @@ function cleanup()
 
 trap 'cleanup' EXIT HUP INT TERM
 
-cargo build --target wasm32-wasip1
+cargo build --release --target wasm32-wasip1
 
 TRAEFIK_ROOT=/opt/traefik
 ROOT_DIR=$TRAEFIK_ROOT/plugins-local/src/$plugin
 
 container=$(buildah from traefik:v3.6)
-buildah copy $container target/wasm32-wasip1/debug/$plugin.wasm $ROOT_DIR/plugin.wasm
+buildah copy $container target/wasm32-wasip1/release/$plugin.wasm $ROOT_DIR/plugin.wasm
 buildah copy $container .traefik.yml $ROOT_DIR/.traefik.yml
 buildah copy $container config/ $ROOT_DIR/config/
 buildah config --workingdir $TRAEFIK_ROOT $container
