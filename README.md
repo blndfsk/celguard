@@ -58,17 +58,52 @@ request.header['user-agent'].matches('(?i)curl')
 
 You can experiment with CEL syntax at [playcel.undistro.io](https://playcel.undistro.io/).
 
-## Example Actions
+## Installation
 
-- Log a warning and block requests from certain user agents.
-- Return a custom response for requests missing a header.
-- Allow or deny requests based on IP, method, or path.
+Copy the plugin to the `plugins-local/src` directory of your Traefik installation:
 
-## Limitations
+plugins-local
+└── src
+    └── celguard
+        ├── .traefik.yml
+        ├── LICENSE
+        └── plugin.wasm
 
-- The "jail" feature is unfinished and not documented here.
+Add the plugin to your static Traefik configuration:
 
-## Todo
+```yaml
+experimental:
+  localplugins:
+    celguard:
+      moduleName: celguard
+```
 
-- Complete jail/ban functionality
-- Add more examples and documentation
+Then you can use the plugin in your dynamic configuration:
+
+```yaml
+http:
+  middlewares:
+    mycelguard:
+      plugin:
+        celguard:
+          rules:
+            - name: useragent
+              tests:
+                - request.header.contains('user-agent') == false
+              action: myresponse
+          actions:
+            myresponse:
+              log: warn
+              response: { status: 400, body: "bad request" }
+```
+
+You need to add the plugin to your Traefik router:
+```yaml
+http:
+  routers:
+    myrouter:
+      rule: "Host(`whoami.localhost`)"
+      service: myservice
+      middlewares:
+        - mycelguard
+```
