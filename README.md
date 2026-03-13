@@ -61,14 +61,14 @@ You can experiment with CEL syntax at [playcel.undistro.io](https://playcel.undi
 ## Installation
 
 Copy the plugin to the `plugins-local/src` directory of your Traefik installation:
-
+```
 plugins-local
 └── src
     └── celguard
         ├── .traefik.yml
         ├── LICENSE
         └── plugin.wasm
-
+```
 Add the plugin to your static Traefik configuration:
 
 ```yaml
