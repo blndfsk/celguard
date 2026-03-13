@@ -90,11 +90,8 @@ mod tests {
         assert!(execute(&matcher.context, &program));
     }
     #[test]
-    #[should_panic(expected = "not yet implemented")]
-    fn test_request_header_panics() {
-        // request.header['user-agent'] returns a String. The cel crate panics when
-        // .all() is called on a String, because it tries to iterate over its characters
-        // and hits an unimplemented code path converting them to cel objects.
+
+    fn test_request_header_wrong_use() {
         let req = Request::from_parts(
             "/foo/bar",
             "GET",
@@ -111,7 +108,7 @@ mod tests {
             action: None,
         }]);
         let out = m.eval(&req).unwrap();
-        assert_eq!(Outcome::Match(None), out);
+        assert_eq!(Outcome::NoMatch, out);
     }
 
     #[test]
