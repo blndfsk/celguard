@@ -1,0 +1,39 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+permissions:
+  contents: write
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          target: wasm32-wasip1
+
+      - name: Build plugin
+        run: cargo build --target wasm32-wasip1 --release
+
+      - name: Prepare plugin directory
+        run: |
+          mkdir -p target/plugin
+          cp .traefik.yml target/plugin/
+          cp LICENSE target/plugin/
+          cp target/wasm32-wasip1/release/celguard.wasm target/plugin/plugin.wasm
+
+      - name: Zip plugin directory
+        run: zip -rj target/plugin.zip target/plugin/
+
+      - name: Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: target/plugin.zip
