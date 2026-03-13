@@ -6,6 +6,9 @@ on:
   pull_request:
     branches: ["main"]
 
+permissions:
+  contents: read
+
 env:
   CARGO_TERM_COLOR: always
 
@@ -18,9 +21,15 @@ jobs:
         with:
           target: wasm32-wasip1
           components: rustfmt, clippy
+
       - name: Build celguard
         run: cargo build --verbose --target wasm32-wasip1
+
       - name: Run tests
         run: cargo test --verbose
+
       - name: Rustfmt Check
         uses: actions-rust-lang/rustfmt@v1
+
+      - name: Clippy check
+        run: cargo clippy --target wasm32-wasip1

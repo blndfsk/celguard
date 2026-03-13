@@ -18,7 +18,7 @@ jobs:
       tag: ${{ steps.get_tag.outputs.tag }}
       should_release: ${{ steps.check_release.outputs.should_release }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
@@ -55,7 +55,7 @@ jobs:
     if: needs.check.outputs.tag != '' && needs.check.outputs.should_release == 'true'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           ref: ${{ needs.check.outputs.tag }}
 
