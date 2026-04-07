@@ -21,7 +21,6 @@ jobs:
         with:
           target: wasm32-wasip1
           components: rustfmt, clippy
-      - uses: Swatinem/rust-cache@v2.9
 
       - name: Build celguard
         run: cargo build --verbose --target wasm32-wasip1
