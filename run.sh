@@ -34,7 +34,6 @@ podman run -d --pod $pod --replace --name whoami \
     --label "traefik.http.routers.whoami.service=whoami" \
     --label 'traefik.http.routers.echo.rule=Host(`echo.localhost`)' \
     --label "traefik.http.routers.echo.service=whoami" \
-    --label "traefik.http.middlewares.$plugin.plugin.$plugin" \
     --label "traefik.http.middlewares.$plugin.plugin.$plugin.paths[0]=$ROOT_DIR/config/rules.yaml" \
     --label "traefik.http.services.whoami.loadbalancer.server.url=http://localhost:8081" \
     traefik/whoami -port 8081

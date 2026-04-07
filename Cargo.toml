@@ -4,9 +4,9 @@ version = "0.1.1"
 edition = "2024"
 
 [dependencies]
-http-wasm-guest = "0.10.1"
+http-wasm-guest = "0.10"
 serde = { version = "1.0", default-features = false, features = ["derive"]}
-serde-saphyr = "0.0.21"
+serde-saphyr = "0.0.23"
 duration-str = "0.21"
 log = "0.4"
 cel = "0.13"
