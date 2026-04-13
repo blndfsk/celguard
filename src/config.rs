@@ -3,37 +3,21 @@ use std::{
     fmt::Debug,
     fs::File,
     io::{self, BufReader, Read},
-    time::Duration,
 };
 
 use anyhow::{Error, Result};
 use cel::Program;
-use duration_str::deserialize_duration;
 use http_wasm_guest::host;
 use log::LevelFilter;
 
-use serde::{
-    Deserialize,
-    de::{self, Deserializer},
-};
+use serde::{Deserialize, de::Deserializer};
 
-#[derive(Deserialize, Debug)]
-pub struct Config {
-    pub actions: HashMap<String, Action>,
-    pub rules: Vec<Rule>,
-}
-
-#[derive(Deserialize, Debug)]
-#[allow(unused)]
-pub struct Jail {
-    #[serde(default, deserialize_with = "deserialize_duration")]
-    pub bantime: Duration,
-    #[serde(default, deserialize_with = "deserialize_duration")]
-    pub findtime: Duration,
+#[derive(Deserialize, Debug, Default)]
+#[serde(tag = "type", rename_all = "lowercase")]
+pub struct Action {
+    pub response: Option<r#Response>,
     #[serde(default)]
-    pub maxretry: u32,
-    #[serde(default)]
-    pub increment: Vec<u32>,
+    pub r#continue: bool,
 }
 
 #[derive(Deserialize, Debug)]
@@ -42,21 +26,42 @@ pub struct r#Response {
     pub status: i32,
     #[serde(default)]
     pub body: Option<String>,
+    #[serde(default)]
+    pub header: HashMap<String, String>,
+}
+
+fn default_status() -> i32 {
+    403
+}
+
+impl Action {
+    pub fn execute(&self, response: &host::Response) -> bool {
+        if let Some(resp) = &self.response {
+            for (key, value) in &resp.header {
+                response.header().set(key.as_bytes(), value.as_bytes());
+            }
+            if let Some(body) = &resp.body {
+                response.body().write(body.as_bytes());
+            }
+            response.set_status(resp.status);
+        };
+        self.r#continue
+    }
 }
 
 #[derive(Deserialize, Debug, Default)]
-#[serde(tag = "type", rename_all = "lowercase")]
-pub struct Action {
-    pub response: Option<r#Response>,
-    pub jail: Option<Jail>,
+pub struct Config {
     #[serde(default)]
-    pub r#continue: bool,
+    pub actions: HashMap<String, Action>,
+    pub rules: Vec<Rule>,
 }
 
 #[derive(Deserialize, Debug)]
 #[serde(deny_unknown_fields)]
 pub struct Rule {
     pub name: String,
+    #[serde(default)]
+    pub disabled: bool,
     #[serde(deserialize_with = "deserialize_level", default = "default_level")]
     pub log: LevelFilter,
     #[serde(deserialize_with = "deserialize_filters")]
@@ -71,7 +76,7 @@ where
     let filters: Vec<String> = Vec::deserialize(d)?;
     filters
         .iter()
-        .map(|s| Program::compile(s).map_err(de::Error::custom))
+        .map(|s| Program::compile(s).map_err(serde::de::Error::custom))
         .collect()
 }
 
@@ -80,11 +85,7 @@ where
     D: Deserializer<'de>,
 {
     let s = String::deserialize(d)?;
-    s.parse().map_err(de::Error::custom)
-}
-
-fn default_status() -> i32 {
-    200
+    s.parse().map_err(serde::de::Error::custom)
 }
 
 fn default_level() -> LevelFilter {
@@ -144,13 +145,13 @@ mod tests {
         let cfg = r#"
             actions:
               myjail:
-                response: { status: 403, body: forbidden }
-                jail: { maxretry: 3, findtime: 10m, bantime: 1h, increment: [1, 5, 10] }
+                response: { status: 403, body: forbidden, header: {allow: 'GET'} }
                 continue: false
               response_without_body:
                 response: { status: 400 }
             rules:
               - name: get_foobar
+                disabled: false
                 log: off
                 tests:
                   - request.method == "GET" && request.path.matches('^/api')
@@ -167,7 +168,29 @@ mod tests {
                 .map(|r| &r.body)
                 .is_some()
         );
+        assert!(
+            config
+                .actions
+                .get("myjail")
+                .and_then(|a| a.response.as_ref())
+                .map(|r| &r.header)
+                .is_some()
+        );
 
+        Ok(())
+    }
+
+    #[test_log::test]
+    fn test_defaults() -> TestResult {
+        let cfg = r#"
+            rules:
+              - name: get_foobar
+                tests:
+                  - request.method == "GET" && request.path.matches('^/api')"#;
+        let config: Config = serde_saphyr::from_str(cfg)?;
+        assert_eq!(config.rules.len(), 1);
+        assert_eq!(config.rules.first().unwrap().name, "get_foobar");
+        assert!(!config.rules[0].disabled);
         Ok(())
     }
 }

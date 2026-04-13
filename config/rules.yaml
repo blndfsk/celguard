@@ -1,16 +1,29 @@
+actions:
+  allow:
+    continue: true
+  block:
+    response: { status: 403, body: blocked }
+  method_not_allowed:
+    response: { status: 405, header: { allow: "GET, HEAD" } }
 rules:
-  - name: useragent
+  - name: method
     log: warn
     tests:
-      - request.header.contains('user-agent') == false
-      - request.header['user-agent'].matches('(?i)python-requests|libwww-perl')
-    action: block
-
-  - name: method
+      - request.method in ['GET','HEAD'] != true
+    action: method_not_allowed
+  - name: whitelist
     tests:
-      - request.method != 'GET'
+      - request.path.startsWith('/de/')
+      - request.path.startsWith('/en/')
+      - request.path.startsWith('/js/')
+      - request.path.startsWith('/css/')
+      - request.path.startsWith('/images/')
+      - request.path.equals('/status')
+      - request.path.equals('/robots.txt')
+      - request.path.equals('/sitemap.xml')
+    action: allow
+  - name: default
+    log: warn
+    tests:
+      - true
     action: block
-
-actions:
-  block:
-    response: { status: 400 }

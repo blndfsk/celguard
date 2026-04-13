@@ -22,16 +22,17 @@ Rules are written in YAML and use CEL expressions for matching:
 ```yaml
 actions:
   myresponse:
-    log: warn                                            # default: off
-    response: { status: 400, body: "bad request" }       # default: status 200, no body
-    continue: false                                      # default: false
+    log: off                                  # off, debug, info, warn, error
+    response: { status: 403, body: "" }       # 
+    continue: false                           # do no continue 
 
 rules:
   - name: useragent
+    disabled: false
     tests:
       - request.header.contains('user-agent') == false
       - request.header['user-agent'].matches('(?i)gpt')
-    action: myresponse
+    action: myresponse                        # optional
 ```
 
 ### Request Object

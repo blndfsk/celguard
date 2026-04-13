@@ -69,15 +69,18 @@ impl TryFrom<&host::Request> for Request {
 }
 
 fn map_header(header: &host::Header) -> HashMap<String, String> {
-    let header_map: HashMap<String, String> = header
+    header
         .values()
         .iter()
         .map(|(key, value)| {
             (
                 key.to_string().to_lowercase(),
-                value.iter().map(|i| i.to_string()).collect(),
+                value
+                    .iter()
+                    .map(|i| i.to_string())
+                    .collect::<Vec<_>>()
+                    .join(", "),
             )
         })
-        .collect();
-    header_map
+        .collect()
 }

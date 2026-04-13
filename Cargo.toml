@@ -7,7 +7,6 @@ edition = "2024"
 http-wasm-guest = "0.10"
 serde = { version = "1.0", default-features = false, features = ["derive"]}
 serde-saphyr = "0.0.23"
-duration-str = "0.21"
 log = "0.4"
 cel = "0.13"
 anyhow = "1.0"

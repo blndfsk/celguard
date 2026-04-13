@@ -18,23 +18,15 @@ pub enum Outcome<'a> {
     NoMatch,
 }
 
-impl<'a> Default for Matcher<'a> {
-    fn default() -> Self {
-        let mut default = cel::Context::default();
-        default.add_function("to_lower", to_lower);
-        Self {
-            context: default,
-            rules: Vec::default(),
-        }
-    }
-}
-
 impl<'a> Matcher<'a> {
     pub fn new(rules: Vec<Rule>) -> Self {
-        Matcher {
-            rules,
-            ..Default::default()
-        }
+        let mut context = cel::Context::default();
+        context.add_function("to_lower", |This(s): This<Arc<String>>| s.to_lowercase());
+        context.add_function("equals", |This(s): This<Arc<String>>, o: Arc<String>| {
+            s.eq(&o)
+        });
+
+        Matcher { context, rules }
     }
 
     pub fn evaluate<'b>(&'a self, request: &'b host::Request) -> Result<Outcome<'a>> {
@@ -47,7 +39,7 @@ impl<'a> Matcher<'a> {
         context.add_variable("request", &request)?;
 
         for rule in &self.rules {
-            if rule.tests.iter().any(|program| execute(&context, program)) {
+            if !rule.disabled && rule.tests.iter().any(|program| is_match(program, &context)) {
                 if let Some(level) = rule.log.to_level() {
                     log!(level, "{} => {}", rule.name, request);
                 }
@@ -58,36 +50,31 @@ impl<'a> Matcher<'a> {
     }
 }
 
-fn to_lower(This(s): This<Arc<String>>) -> String {
-    s.to_lowercase()
-}
-
-fn execute(context: &Context, program: &Program) -> bool {
+fn is_match(program: &Program, context: &Context) -> bool {
     match program.execute(context) {
-        Ok(val) => match val {
-            Value::Bool(b) => b,
-            _ => false, //wrong type
-        },
+        Ok(Value::Bool(b)) => b,
+        Ok(_) => false, //wrong type
         Err(e) => {
             log::error!("{}", e);
             false
         }
     }
 }
-
 #[cfg(test)]
 mod tests {
     use std::collections::HashMap;
 
     use testresult::TestResult;
 
+    use crate::config::Rule;
+
     use super::*;
 
     #[test]
     fn test_to_lower() {
-        let matcher = Matcher::new(Vec::default());
+        let matcher = Matcher::new(Vec::new());
         let program = Program::compile("to_lower('HeLLo') == 'hello'").unwrap();
-        assert!(execute(&matcher.context, &program));
+        assert!(is_match(&program, &matcher.context));
     }
     #[test]
 
@@ -100,6 +87,7 @@ mod tests {
         );
         let m = Matcher::new(vec![Rule {
             name: "test".to_string(),
+            disabled: false,
             log: log::LevelFilter::Off,
             tests: vec![
                 Program::compile("request.header['user-agent'].all(h, h.matches('(?i)curl'))")
@@ -121,6 +109,7 @@ mod tests {
         );
         let m = Matcher::new(vec![Rule {
             name: "test".to_string(),
+            disabled: false,
             log: log::LevelFilter::Off,
             tests: vec![Program::compile("request.method == 'GET'")?],
             action: None,
