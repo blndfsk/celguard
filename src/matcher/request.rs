@@ -29,8 +29,9 @@ impl Display for Request {
             self.version,
             self.header
                 .get("user-agent")
+                .filter(|s| !s.is_empty())
                 .map(|s| s.as_str())
-                .unwrap_or_else(|| "-")
+                .unwrap_or("-")
         )
     }
 }
@@ -50,7 +51,10 @@ impl Request {
             path: path.to_string(),
             method: method.to_string(),
             version: version.to_string(),
-            header,
+            header: header
+                .into_iter()
+                .map(|(k, v)| (k.to_lowercase(), v))
+                .collect(),
         }
     }
 }
@@ -83,4 +87,55 @@ fn map_header(header: &host::Header) -> HashMap<String, String> {
             )
         })
         .collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_display_with_user_agent() {
+        let req = Request::from_parts(
+            "/foo/bar",
+            "GET",
+            "HTTP/1.1",
+            HashMap::from([("user-agent".to_string(), "curl/8.0".to_string())]),
+        );
+        assert_eq!(format!("{}", req), "\"GET /foo/bar HTTP/1.1\" curl/8.0");
+    }
+
+    #[test]
+    fn test_display_without_user_agent() {
+        let req = Request::from_parts("/foo/bar", "POST", "HTTP/2.0", HashMap::new());
+        assert_eq!(format!("{}", req), "\"POST /foo/bar HTTP/2.0\" -");
+    }
+
+    #[test]
+    fn test_display_with_empty_user_agent() {
+        let req = Request::from_parts(
+            "/",
+            "GET",
+            "HTTP/1.0",
+            HashMap::from([("user-agent".to_string(), "".to_string())]),
+        );
+        assert_eq!(format!("{}", req), "\"GET / HTTP/1.0\" -");
+    }
+
+    #[test]
+    fn test_runtime_type_name() {
+        let req = Request::from_parts("/", "GET", "HTTP/1.1", HashMap::new());
+        assert_eq!(req.runtime_type_name(), "request");
+    }
+
+    #[test]
+    fn test_header_keys_are_lowercased_in_from_parts() {
+        let req = Request::from_parts(
+            "/",
+            "GET",
+            "HTTP/1.1",
+            HashMap::from([("User-Agent".to_string(), "test".to_string())]),
+        );
+        // from_parts lowercases keys, consistent with map_header
+        assert_eq!(format!("{}", req), "\"GET / HTTP/1.1\" test");
+    }
 }

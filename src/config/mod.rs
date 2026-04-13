@@ -111,4 +111,140 @@ mod tests {
         assert!(!config.rules[0].disabled);
         Ok(())
     }
+
+    #[test_log::test]
+    fn test_invalid_cel_expression() {
+        let cfg = r#"
+            rules:
+              - name: bad_rule
+                tests:
+                  - "this is not valid CEL @@!""#;
+        let result: Result<Config, _> = serde_saphyr::from_str(cfg);
+        assert!(result.is_err());
+    }
+
+    #[test_log::test]
+    fn test_unknown_field_rejected() {
+        let cfg = r#"
+            rules:
+              - name: bad_rule
+                tests:
+                  - request.method == 'GET'
+                unknown_field: oops"#;
+        let result: Result<Config, _> = serde_saphyr::from_str(cfg);
+        assert!(result.is_err());
+    }
+
+    #[test_log::test]
+    fn test_response_default_status() -> TestResult {
+        let cfg = r#"
+            actions:
+              block:
+                response: {}
+            rules:
+              - name: test
+                tests:
+                  - request.method == 'GET'"#;
+        let config: Config = serde_saphyr::from_str(cfg)?;
+        let action = config.actions.get("block").unwrap();
+        let resp = action.response.as_ref().unwrap();
+        assert_eq!(resp.status, 403);
+        Ok(())
+    }
+
+    #[test_log::test]
+    fn test_action_default_continue_is_false() -> TestResult {
+        let cfg = r#"
+            actions:
+              block:
+                response: { status: 403 }
+            rules:
+              - name: test
+                tests:
+                  - request.method == 'GET'"#;
+        let config: Config = serde_saphyr::from_str(cfg)?;
+        let action = config.actions.get("block").unwrap();
+        assert!(!action.r#continue);
+        Ok(())
+    }
+
+    #[test_log::test]
+    fn test_multiple_rules() -> TestResult {
+        let cfg = r#"
+            rules:
+              - name: rule_one
+                tests:
+                  - request.method == 'GET'
+              - name: rule_two
+                tests:
+                  - request.method == 'POST'"#;
+        let config: Config = serde_saphyr::from_str(cfg)?;
+        assert_eq!(config.rules.len(), 2);
+        assert_eq!(config.rules[0].name, "rule_one");
+        assert_eq!(config.rules[1].name, "rule_two");
+        Ok(())
+    }
+
+    #[test_log::test]
+    fn test_empty_actions_map() -> TestResult {
+        let cfg = r#"
+            rules:
+              - name: test
+                tests:
+                  - request.method == 'GET'"#;
+        let config: Config = serde_saphyr::from_str(cfg)?;
+        assert!(config.actions.is_empty());
+        Ok(())
+    }
+
+    #[test_log::test]
+    fn test_read_from_empty_paths() {
+        let result = read_from(&[]);
+        assert!(result.is_err());
+        assert_eq!(result.unwrap_err().to_string(), "no config paths provided");
+    }
+
+    #[test_log::test]
+    fn test_read_from_nonexistent_file() {
+        let result = read_from(&["nonexistent.yaml".to_string()]);
+        assert!(result.is_err());
+    }
+
+    #[test_log::test]
+    fn test_disabled_rule_parsing() -> TestResult {
+        let cfg = r#"
+            rules:
+              - name: disabled_rule
+                disabled: true
+                tests:
+                  - request.method == 'GET'"#;
+        let config: Config = serde_saphyr::from_str(cfg)?;
+        assert!(config.rules[0].disabled);
+        Ok(())
+    }
+
+    #[test_log::test]
+    fn test_rule_with_log_level() -> TestResult {
+        let cfg = r#"
+            rules:
+              - name: logged_rule
+                log: info
+                tests:
+                  - request.method == 'GET'"#;
+        let config: Config = serde_saphyr::from_str(cfg)?;
+        assert_eq!(config.rules[0].log, log::LevelFilter::Info);
+        Ok(())
+    }
+
+    #[test_log::test]
+    fn test_default_log_level_is_off() -> TestResult {
+        let cfg = r#"
+            rules:
+              - name: test
+                tests:
+                  - request.method == 'GET'"#;
+        let config: Config = serde_saphyr::from_str(cfg)?;
+        assert_eq!(config.rules[0].log, log::LevelFilter::Off);
+        Ok(())
+    }
 }

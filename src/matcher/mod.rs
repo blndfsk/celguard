@@ -118,4 +118,132 @@ mod tests {
         assert_eq!(Outcome::Match(None), out);
         Ok(())
     }
+
+    #[test]
+    fn test_disabled_rule_is_skipped() -> TestResult {
+        let req = Request::from_parts("/foo", "GET", "HTTP/1.1", HashMap::new());
+        let m = Matcher::new(vec![Rule {
+            name: "disabled_rule".to_string(),
+            disabled: true,
+            log: log::LevelFilter::Off,
+            tests: vec![Program::compile("request.method == 'GET'")?],
+            action: None,
+        }]);
+        let out = m.eval(&req)?;
+        assert_eq!(Outcome::NoMatch, out);
+        Ok(())
+    }
+
+    #[test]
+    fn test_first_matching_rule_wins() -> TestResult {
+        let req = Request::from_parts("/foo", "GET", "HTTP/1.1", HashMap::new());
+        let m = Matcher::new(vec![
+            Rule {
+                name: "first".to_string(),
+                disabled: false,
+                log: log::LevelFilter::Off,
+                tests: vec![Program::compile("request.method == 'GET'")?],
+                action: Some("action_a".to_string()),
+            },
+            Rule {
+                name: "second".to_string(),
+                disabled: false,
+                log: log::LevelFilter::Off,
+                tests: vec![Program::compile("request.method == 'GET'")?],
+                action: Some("action_b".to_string()),
+            },
+        ]);
+        let out = m.eval(&req)?;
+        assert_eq!(Outcome::Match(Some("action_a")), out);
+        Ok(())
+    }
+
+    #[test]
+    fn test_no_rules_returns_no_match() -> TestResult {
+        let req = Request::from_parts("/foo", "GET", "HTTP/1.1", HashMap::new());
+        let m = Matcher::new(vec![]);
+        let out = m.eval(&req)?;
+        assert_eq!(Outcome::NoMatch, out);
+        Ok(())
+    }
+
+    #[test]
+    fn test_match_returns_action_name() -> TestResult {
+        let req = Request::from_parts("/foo", "GET", "HTTP/1.1", HashMap::new());
+        let m = Matcher::new(vec![Rule {
+            name: "with_action".to_string(),
+            disabled: false,
+            log: log::LevelFilter::Off,
+            tests: vec![Program::compile("request.method == 'GET'")?],
+            action: Some("block".to_string()),
+        }]);
+        let out = m.eval(&req)?;
+        assert_eq!(Outcome::Match(Some("block")), out);
+        Ok(())
+    }
+
+    #[test]
+    fn test_non_matching_rule() -> TestResult {
+        let req = Request::from_parts("/foo", "POST", "HTTP/1.1", HashMap::new());
+        let m = Matcher::new(vec![Rule {
+            name: "get_only".to_string(),
+            disabled: false,
+            log: log::LevelFilter::Off,
+            tests: vec![Program::compile("request.method == 'GET'")?],
+            action: None,
+        }]);
+        let out = m.eval(&req)?;
+        assert_eq!(Outcome::NoMatch, out);
+        Ok(())
+    }
+
+    #[test]
+    fn test_non_bool_expression_is_no_match() {
+        let matcher = Matcher::new(Vec::new());
+        let program = Program::compile("'hello'").unwrap();
+        assert!(!is_match(&program, &matcher.context));
+    }
+
+    #[test]
+    fn test_equals_function() {
+        let matcher = Matcher::new(Vec::new());
+        let program = Program::compile("equals('hello', 'hello')").unwrap();
+        assert!(is_match(&program, &matcher.context));
+
+        let program = Program::compile("equals('hello', 'world')").unwrap();
+        assert!(!is_match(&program, &matcher.context));
+    }
+
+    #[test]
+    fn test_multiple_tests_any_matches() -> TestResult {
+        let req = Request::from_parts("/foo", "POST", "HTTP/1.1", HashMap::new());
+        let m = Matcher::new(vec![Rule {
+            name: "any_test".to_string(),
+            disabled: false,
+            log: log::LevelFilter::Off,
+            tests: vec![
+                Program::compile("request.method == 'GET'")?,
+                Program::compile("request.method == 'POST'")?,
+            ],
+            action: None,
+        }]);
+        let out = m.eval(&req)?;
+        assert_eq!(Outcome::Match(None), out);
+        Ok(())
+    }
+
+    #[test]
+    fn test_path_matching() -> TestResult {
+        let req = Request::from_parts("/api/v1/users", "GET", "HTTP/1.1", HashMap::new());
+        let m = Matcher::new(vec![Rule {
+            name: "api_route".to_string(),
+            disabled: false,
+            log: log::LevelFilter::Off,
+            tests: vec![Program::compile("request.path.matches('^/api')")?],
+            action: None,
+        }]);
+        let out = m.eval(&req)?;
+        assert_eq!(Outcome::Match(None), out);
+        Ok(())
+    }
 }
