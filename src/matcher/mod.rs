@@ -8,18 +8,18 @@ use log::log;
 use crate::{config::Rule, matcher::request::Request};
 mod request;
 
-pub struct Matcher<'a> {
+pub(crate) struct Matcher<'a> {
     context: Context<'a>,
-    pub rules: Vec<Rule>,
+    rules: Vec<Rule>,
 }
 #[derive(Debug, PartialEq)]
-pub enum Outcome<'a> {
-    Match(Option<&'a String>),
+pub(crate) enum Outcome<'a> {
+    Match(Option<&'a str>),
     NoMatch,
 }
 
 impl<'a> Matcher<'a> {
-    pub fn new(rules: Vec<Rule>) -> Self {
+    pub(crate) fn new(rules: Vec<Rule>) -> Self {
         let mut context = cel::Context::default();
         context.add_function("to_lower", |This(s): This<Arc<String>>| s.to_lowercase());
         context.add_function("equals", |This(s): This<Arc<String>>, o: Arc<String>| {
@@ -29,7 +29,7 @@ impl<'a> Matcher<'a> {
         Matcher { context, rules }
     }
 
-    pub fn evaluate<'b>(&'a self, request: &'b host::Request) -> Result<Outcome<'a>> {
+    pub(crate) fn evaluate<'b>(&'a self, request: &'b host::Request) -> Result<Outcome<'a>> {
         let request = Request::try_from_host(request)?;
         self.eval(&request)
     }
@@ -43,7 +43,7 @@ impl<'a> Matcher<'a> {
                 if let Some(level) = rule.log.to_level() {
                     log!(level, "{} => {}", rule.name, request);
                 }
-                return Ok(Outcome::Match(rule.action.as_ref()));
+                return Ok(Outcome::Match(rule.action.as_deref()));
             }
         }
         Ok(Outcome::NoMatch)
@@ -76,8 +76,8 @@ mod tests {
         let program = Program::compile("to_lower('HeLLo') == 'hello'").unwrap();
         assert!(is_match(&program, &matcher.context));
     }
-    #[test]
 
+    #[test]
     fn test_request_header_wrong_use() {
         let req = Request::from_parts(
             "/foo/bar",

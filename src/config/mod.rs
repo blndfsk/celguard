@@ -1,96 +1,16 @@
+mod deserialize;
+mod model;
+
+pub(crate) use model::{Action, Config, Rule};
+
 use std::{
-    collections::HashMap,
-    fmt::Debug,
     fs::File,
     io::{self, BufReader, Read},
 };
 
 use anyhow::{Error, Result};
-use cel::Program;
 use http_wasm_guest::host;
-use log::LevelFilter;
-
-use serde::{Deserialize, de::Deserializer};
-
-#[derive(Deserialize, Debug, Default)]
-#[serde(tag = "type", rename_all = "lowercase")]
-pub struct Action {
-    pub response: Option<r#Response>,
-    #[serde(default)]
-    pub r#continue: bool,
-}
-
-#[derive(Deserialize, Debug)]
-pub struct r#Response {
-    #[serde(default = "default_status")]
-    pub status: i32,
-    #[serde(default)]
-    pub body: Option<String>,
-    #[serde(default)]
-    pub header: HashMap<String, String>,
-}
-
-fn default_status() -> i32 {
-    403
-}
-
-impl Action {
-    pub fn execute(&self, response: &host::Response) -> bool {
-        if let Some(resp) = &self.response {
-            for (key, value) in &resp.header {
-                response.header().set(key.as_bytes(), value.as_bytes());
-            }
-            if let Some(body) = &resp.body {
-                response.body().write(body.as_bytes());
-            }
-            response.set_status(resp.status);
-        };
-        self.r#continue
-    }
-}
-
-#[derive(Deserialize, Debug, Default)]
-pub struct Config {
-    #[serde(default)]
-    pub actions: HashMap<String, Action>,
-    pub rules: Vec<Rule>,
-}
-
-#[derive(Deserialize, Debug)]
-#[serde(deny_unknown_fields)]
-pub struct Rule {
-    pub name: String,
-    #[serde(default)]
-    pub disabled: bool,
-    #[serde(deserialize_with = "deserialize_level", default = "default_level")]
-    pub log: LevelFilter,
-    #[serde(deserialize_with = "deserialize_filters")]
-    pub tests: Vec<Program>,
-    pub action: Option<String>,
-}
-
-fn deserialize_filters<'de, D>(d: D) -> Result<Vec<Program>, D::Error>
-where
-    D: Deserializer<'de>,
-{
-    let filters: Vec<String> = Vec::deserialize(d)?;
-    filters
-        .iter()
-        .map(|s| Program::compile(s).map_err(serde::de::Error::custom))
-        .collect()
-}
-
-fn deserialize_level<'de, D>(d: D) -> Result<LevelFilter, D::Error>
-where
-    D: Deserializer<'de>,
-{
-    let s = String::deserialize(d)?;
-    s.parse().map_err(serde::de::Error::custom)
-}
-
-fn default_level() -> LevelFilter {
-    LevelFilter::Off
-}
+use serde::Deserialize;
 
 #[derive(Debug, Deserialize)]
 struct HostConfig {
@@ -104,7 +24,7 @@ pub(crate) fn read() -> Result<Config> {
     hc.config.map_or_else(|| read_from(&hc.paths), Ok)
 }
 
-pub fn read_from(paths: &[String]) -> Result<Config> {
+fn read_from(paths: &[String]) -> Result<Config> {
     if paths.is_empty() {
         return Err(Error::msg("no config paths provided"));
     }
@@ -120,13 +40,11 @@ pub fn read_from(paths: &[String]) -> Result<Config> {
 }
 
 fn chain_readers(mut readers: Vec<BufReader<File>>) -> Box<dyn Read> {
-    // Start by popping the last reader
     let mut combined: Box<dyn Read> = match readers.pop() {
         Some(reader) => Box::new(reader),
-        None => Box::new(io::empty()), // No readers, empty reader
+        None => Box::new(io::empty()),
     };
 
-    // Chain remaining readers one by one
     while let Some(reader) = readers.pop() {
         combined = Box::new(reader.chain(combined));
     }

@@ -6,7 +6,7 @@ use http_wasm_guest::host;
 use serde::Serialize;
 
 #[derive(Eq, PartialEq, Serialize, Debug)]
-pub struct Request {
+pub(super) struct Request {
     path: String,
     method: String,
     version: String,
@@ -36,11 +36,11 @@ impl Display for Request {
 }
 
 impl Request {
-    pub fn try_from_host(request: &host::Request) -> Result<Self> {
+    pub(super) fn try_from_host(request: &host::Request) -> Result<Self> {
         Self::try_from(request)
     }
     #[cfg(test)]
-    pub fn from_parts(
+    pub(super) fn from_parts(
         path: &str,
         method: &str,
         version: &str,

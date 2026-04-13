@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 use anyhow::Error;
 use http_wasm_guest::{
     Guest, HostLogger,
@@ -8,33 +6,25 @@ use http_wasm_guest::{
 };
 
 use crate::{
-    config::Action,
+    handler::Handler,
     matcher::{Matcher, Outcome},
 };
 
 mod config;
+mod handler;
 mod matcher;
 
 struct Plugin<'a> {
     matcher: Matcher<'a>,
-    actions: HashMap<String, Action>,
+    handler: Handler,
 }
 
 impl<'a> Guest for Plugin<'a> {
     fn handle_request(&self, request: &Request, response: &Response) -> (bool, i32) {
         match self.matcher.evaluate(request).unwrap_or_else(handle_err) {
-            Outcome::Match(Some(action_name)) => (self.execute(action_name, response), 0),
+            Outcome::Match(Some(action)) => (self.handler.execute(action, response), 0),
             Outcome::Match(None) => (false, 0),
             Outcome::NoMatch => (true, 0),
-        }
-    }
-}
-impl<'a> Plugin<'a> {
-    fn execute(&self, name: &str, response: &Response) -> bool {
-        if let Some(action) = self.actions.get(name) {
-            action.execute(response)
-        } else {
-            Action::default().execute(response)
         }
     }
 }
@@ -51,7 +41,7 @@ fn main() {
         Ok(config) => {
             let plugin = Plugin {
                 matcher: Matcher::new(config.rules),
-                actions: config.actions,
+                handler: Handler::new(config.actions),
             };
             register(plugin);
         }
