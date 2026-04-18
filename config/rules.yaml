@@ -13,14 +13,13 @@ rules:
     action: method_not_allowed
   - name: whitelist
     tests:
-      - request.path.startsWith('/de/')
-      - request.path.startsWith('/en/')
+      - request.path == '/'
+      - request.path == '/status'
+      - request.path == '/robots.txt'
+      - request.path == '/sitemap.xml'
       - request.path.startsWith('/js/')
       - request.path.startsWith('/css/')
       - request.path.startsWith('/images/')
-      - request.path.equals('/status')
-      - request.path.equals('/robots.txt')
-      - request.path.equals('/sitemap.xml')
     action: allow
   - name: default
     log: warn

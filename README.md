@@ -22,9 +22,9 @@ Rules are written in YAML and use CEL expressions for matching:
 ```yaml
 actions:
   myresponse:
-    log: off                                  # off, debug, info, warn, error
-    response: { status: 403, body: "" }       # 
-    continue: false                           # do no continue 
+    log: off                                         # off(default), debug, info, warn, error
+    response: { status: 403, body: "", header: {} }  # default is status:403, no body, no extra header
+    continue: false                                  # true, false(default) - do no continue 
 
 rules:
   - name: useragent

@@ -1,9 +1,9 @@
-name: Scheduled Release
+name: Release
 
 on:
-  schedule:
-    - cron: "0 0 * * *" # Runs daily at midnight UTC
-  workflow_dispatch:
+  push:
+    tags:
+      - "v*"
 
 permissions:
   contents: write
@@ -12,52 +12,10 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  check:
-    runs-on: ubuntu-latest
-    outputs:
-      tag: ${{ steps.get_tag.outputs.tag }}
-      should_release: ${{ steps.check_release.outputs.should_release }}
-    steps:
-      - uses: actions/checkout@v6
-        with:
-          fetch-depth: 0
-
-      - name: Get latest tag
-        id: get_tag
-        run: |
-          LATEST=$(git rev-list --tags --max-count=1 2>/dev/null || true)
-          if [ -z "$LATEST" ]; then
-            echo "tag=" >> $GITHUB_OUTPUT
-            echo "No tags found"
-          else
-            TAG=$(git describe --tags "$LATEST")
-            echo "tag=$TAG" >> $GITHUB_OUTPUT
-            echo "Latest tag: $TAG"
-          fi
-
-      - name: Check if release exists
-        id: check_release
-        if: steps.get_tag.outputs.tag != ''
-        run: |
-          STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
-            -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-            https://api.github.com/repos/${{ github.repository }}/releases/tags/${{ steps.get_tag.outputs.tag }})
-          if [ "$STATUS" = "200" ]; then
-            echo "should_release=false" >> $GITHUB_OUTPUT
-            echo "Release already exists for ${{ steps.get_tag.outputs.tag }}, skipping."
-          else
-            echo "should_release=true" >> $GITHUB_OUTPUT
-            echo "No release found for ${{ steps.get_tag.outputs.tag }}, proceeding."
-          fi
-
   release:
-    needs: check
-    if: needs.check.outputs.tag != '' && needs.check.outputs.should_release == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
-        with:
-          ref: ${{ needs.check.outputs.tag }}
 
       - uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
@@ -79,7 +37,6 @@ jobs:
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ needs.check.outputs.tag }}
           files: target/plugin.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

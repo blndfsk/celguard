@@ -51,10 +51,7 @@ impl Request {
             path: path.to_string(),
             method: method.to_string(),
             version: version.to_string(),
-            header: header
-                .into_iter()
-                .map(|(k, v)| (k.to_lowercase(), v))
-                .collect(),
+            header: header,
         }
     }
 }
@@ -74,8 +71,7 @@ impl TryFrom<&host::Request> for Request {
 
 fn map_header(header: &host::Header) -> HashMap<String, String> {
     header
-        .values()
-        .iter()
+        .entries_iter()
         .map(|(key, value)| {
             (
                 key.to_string().to_lowercase(),
@@ -125,17 +121,5 @@ mod tests {
     fn test_runtime_type_name() {
         let req = Request::from_parts("/", "GET", "HTTP/1.1", HashMap::new());
         assert_eq!(req.runtime_type_name(), "request");
-    }
-
-    #[test]
-    fn test_header_keys_are_lowercased_in_from_parts() {
-        let req = Request::from_parts(
-            "/",
-            "GET",
-            "HTTP/1.1",
-            HashMap::from([("User-Agent".to_string(), "test".to_string())]),
-        );
-        // from_parts lowercases keys, consistent with map_header
-        assert_eq!(format!("{}", req), "\"GET / HTTP/1.1\" test");
     }
 }
