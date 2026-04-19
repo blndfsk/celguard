@@ -4,7 +4,6 @@ mod model;
 pub(crate) use model::{Action, Config, Rule};
 
 use std::{
-    fs::File,
     io::{self, BufReader, Read},
     path::PathBuf,
 };
@@ -35,24 +34,20 @@ fn read_from(paths: &[PathBuf]) -> Result<Config> {
 }
 
 fn combine(paths: &[PathBuf]) -> Box<dyn Read> {
-    let f: Vec<BufReader<File>> = paths.iter().flat_map(file).collect();
-    chain_readers(f)
-}
+    let mut readers = Vec::with_capacity(paths.len());
 
-fn file(path: &PathBuf) -> Option<BufReader<File>> {
-    match File::open(path) {
-        Ok(file) => {
-            log::info!("{:?}", file.metadata());
-            Some(BufReader::new(file))
-        }
-        Err(err) => {
-            log::warn!("unable to open file: {}, error: {}", path.display(), err);
-            None
+    for path in paths {
+        match std::fs::File::open(path) {
+            Ok(file) => {
+                readers.push(BufReader::new(file));
+            }
+            Err(err) => {
+                log::warn!("unable to open file: {}, error: {}", path.display(), err);
+            }
         }
     }
-}
 
-fn chain_readers(mut readers: Vec<BufReader<File>>) -> Box<dyn Read> {
+    // Chain from last to first (last file read first for sequential reading)
     let mut combined: Box<dyn Read> = match readers.pop() {
         Some(reader) => Box::new(reader),
         None => Box::new(io::empty()),
