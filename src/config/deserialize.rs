@@ -21,7 +21,7 @@ where
         where
             A: serde::de::SeqAccess<'de>,
         {
-            let mut programs = Vec::new();
+            let mut programs = Vec::with_capacity(seq.size_hint().unwrap_or(32));
             while let Some(s) = seq.next_element::<&str>()? {
                 programs.push(Program::compile(s).map_err(serde::de::Error::custom)?);
             }
@@ -45,7 +45,7 @@ where
             write!(formatter, "a string representing a log level")
         }
 
-        fn visit_borrowed_str<E>(self, s: &str) -> Result<Self::Value, E>
+        fn visit_str<E>(self, s: &str) -> Result<Self::Value, E>
         where
             E: serde::de::Error,
         {
