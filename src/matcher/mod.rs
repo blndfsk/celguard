@@ -235,7 +235,7 @@ mod tests {
             "get_only",
             false,
             log::LevelFilter::Off,
-            vec!["request.method == 'GET'"],
+            vec!["request.path.matches('^/api')"],
             None,
         )]);
         let out = m.eval(&req)?;

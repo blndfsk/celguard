@@ -210,7 +210,7 @@ mod tests {
 
     #[test_log::test]
     fn test_read_from_nonexistent_file() {
-        let p = PathBuf::from("nonexistant.yml");
+        let p = PathBuf::from("nonexistent.yml");
         let result = read_from(&[p]);
         assert!(result.is_err());
     }
