@@ -6,6 +6,7 @@ pub(crate) use model::{Action, Config, Rule};
 use std::{
     fs::File,
     io::{self, BufReader, Read},
+    path::PathBuf,
 };
 
 use anyhow::{Error, Result};
@@ -15,7 +16,7 @@ use serde::Deserialize;
 #[derive(Debug, Deserialize)]
 struct HostConfig {
     #[serde(default)]
-    paths: Vec<String>,
+    paths: Vec<PathBuf>,
     config: Option<Config>,
 }
 
@@ -24,19 +25,31 @@ pub(crate) fn read() -> Result<Config> {
     hc.config.map_or_else(|| read_from(&hc.paths), Ok)
 }
 
-fn read_from(paths: &[String]) -> Result<Config> {
+fn read_from(paths: &[PathBuf]) -> Result<Config> {
     if paths.is_empty() {
         return Err(Error::msg("no config paths provided"));
     }
-    let readers: Result<Vec<_>, io::Error> = paths
-        .iter()
-        .map(|f| File::open(f).map(BufReader::new))
-        .collect();
 
-    let reader = chain_readers(readers?);
-
-    let config: Config = serde_saphyr::from_reader(reader)?;
+    let config: Config = serde_saphyr::from_reader(combine(paths))?;
     Ok(config)
+}
+
+fn combine(paths: &[PathBuf]) -> Box<dyn Read> {
+    let f: Vec<BufReader<File>> = paths.iter().flat_map(file).collect();
+    chain_readers(f)
+}
+
+fn file(path: &PathBuf) -> Option<BufReader<File>> {
+    match File::open(path) {
+        Ok(file) => {
+            log::info!("{:?}", file.metadata());
+            Some(BufReader::new(file))
+        }
+        Err(err) => {
+            log::warn!("unable to open file: {}, error: {}", path.display(), err);
+            None
+        }
+    }
 }
 
 fn chain_readers(mut readers: Vec<BufReader<File>>) -> Box<dyn Read> {
@@ -206,7 +219,8 @@ mod tests {
 
     #[test_log::test]
     fn test_read_from_nonexistent_file() {
-        let result = read_from(&["nonexistent.yaml".to_string()]);
+        let p = PathBuf::from("nonexistant.yml");
+        let result = read_from(&[p]);
         assert!(result.is_err());
     }
 

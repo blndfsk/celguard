@@ -10,7 +10,7 @@ The intended use is for small sites that want to block or log certain requests w
 - **Easy configuration:** Write rules using the Common Expression Language (CEL), a familiar and powerful syntax.
 - **Request filtering:** Match requests based on any HTTP property (method, path, headers, etc.).
 - **Logging:** Actions can specify log levels for matched requests.
-- **Custom responses:** Return custom HTTP status and body for matched requests.
+- **Custom responses:** Return custom HTTP status, header and body for matched requests.
 - **Traefik integration:** Deploy as a WASM plugin for Traefik.
 
 ## Configuration
@@ -60,50 +60,4 @@ You can experiment with CEL syntax at [playcel.undistro.io](https://playcel.undi
 
 ## Installation
 
-Copy the plugin to the `plugins-local/src` directory of your Traefik installation:
-```
-plugins-local
-└── src
-    └── celguard
-        ├── .traefik.yml
-        ├── LICENSE
-        └── plugin.wasm
-```
-Add the plugin to your static Traefik configuration:
-
-```yaml
-experimental:
-  localplugins:
-    celguard:
-      moduleName: celguard
-```
-
-Then you can use the plugin in your dynamic configuration:
-
-```yaml
-http:
-  middlewares:
-    mycelguard:
-      plugin:
-        celguard:
-          rules:
-            - name: useragent
-              tests:
-                - request.header.contains('user-agent') == false
-              action: myresponse
-          actions:
-            myresponse:
-              log: warn
-              response: { status: 400, body: "bad request" }
-```
-
-You need to add the plugin to your Traefik router:
-```yaml
-http:
-  routers:
-    myrouter:
-      rule: "Host(`whoami.localhost`)"
-      service: myservice
-      middlewares:
-        - mycelguard
-```
+The plugin is available on the [Traefik Plugin Catalog](https://plugins.traefik.io/plugins/69d60c0a4cda2b265225fa6a/celguard).

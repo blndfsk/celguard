@@ -2,6 +2,7 @@
 name = "celguard"
 version = "0.1.2"
 edition = "2024"
+rust-version = "1.88.0"
 
 [dependencies]
 http-wasm-guest = "0.11"
