@@ -40,7 +40,29 @@ pub(crate) struct Rule {
         default = "super::deserialize::default_level"
     )]
     pub(crate) log: LevelFilter,
-    #[serde(deserialize_with = "super::deserialize::deserialize_filters")]
+    #[serde(deserialize_with = "super::deserialize::deserialize_program")]
     pub(crate) tests: Vec<Program>,
     pub(crate) action: Option<String>,
+}
+
+impl Rule {
+    #[cfg(test)]
+    pub(crate) fn from_parts(
+        name: &str,
+        disabled: bool,
+        log: LevelFilter,
+        tests: Vec<&str>,
+        action: Option<&str>,
+    ) -> Rule {
+        Rule {
+            name: name.to_string(),
+            disabled,
+            log,
+            tests: tests
+                .iter()
+                .flat_map(|s| Program::compile(s))
+                .collect::<Vec<_>>(),
+            action: action.map(String::from),
+        }
+    }
 }

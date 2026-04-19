@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use anyhow::Result;
+
 use cel::{Context, Program, Value, extractors::This};
 use http_wasm_guest::host;
 use log::log;
@@ -78,25 +79,23 @@ mod tests {
     }
 
     #[test]
-    fn test_request_header_wrong_use() {
+    fn test_request_header_wrong_use() -> TestResult {
         let req = Request::from_parts(
             "/foo/bar",
             "GET",
             "HTTP/1.1",
             HashMap::from([("user-agent".to_string(), "curl/123".to_string())]),
         );
-        let m = Matcher::new(vec![Rule {
-            name: "test".to_string(),
-            disabled: false,
-            log: log::LevelFilter::Off,
-            tests: vec![
-                Program::compile("request.header['user-agent'].all(h, h.matches('(?i)curl'))")
-                    .unwrap(),
-            ],
-            action: None,
-        }]);
+        let m = Matcher::new(vec![Rule::from_parts(
+            "test",
+            false,
+            log::LevelFilter::Off,
+            vec!["request.header['user-agent'].all(h, h.matches('(?i)curl'))"],
+            None,
+        )]);
         let out = m.eval(&req).unwrap();
         assert_eq!(Outcome::NoMatch, out);
+        Ok(())
     }
 
     #[test]
@@ -107,13 +106,13 @@ mod tests {
             "HTTP/1.1",
             HashMap::from([("user-agent".to_string(), "curl/123".to_string())]),
         );
-        let m = Matcher::new(vec![Rule {
-            name: "test".to_string(),
-            disabled: false,
-            log: log::LevelFilter::Off,
-            tests: vec![Program::compile("request.method == 'GET'")?],
-            action: None,
-        }]);
+        let m = Matcher::new(vec![Rule::from_parts(
+            "test",
+            false,
+            log::LevelFilter::Off,
+            vec!["request.method == 'GET'"],
+            None,
+        )]);
         let out = m.eval(&req)?;
         assert_eq!(Outcome::Match(None), out);
         Ok(())
@@ -122,13 +121,13 @@ mod tests {
     #[test]
     fn test_disabled_rule_is_skipped() -> TestResult {
         let req = Request::from_parts("/foo", "GET", "HTTP/1.1", HashMap::new());
-        let m = Matcher::new(vec![Rule {
-            name: "disabled_rule".to_string(),
-            disabled: true,
-            log: log::LevelFilter::Off,
-            tests: vec![Program::compile("request.method == 'GET'")?],
-            action: None,
-        }]);
+        let m = Matcher::new(vec![Rule::from_parts(
+            "test_disabled",
+            true,
+            log::LevelFilter::Off,
+            vec!["request.method == 'GET'"],
+            None,
+        )]);
         let out = m.eval(&req)?;
         assert_eq!(Outcome::NoMatch, out);
         Ok(())
@@ -138,20 +137,20 @@ mod tests {
     fn test_first_matching_rule_wins() -> TestResult {
         let req = Request::from_parts("/foo", "GET", "HTTP/1.1", HashMap::new());
         let m = Matcher::new(vec![
-            Rule {
-                name: "first".to_string(),
-                disabled: false,
-                log: log::LevelFilter::Off,
-                tests: vec![Program::compile("request.method == 'GET'")?],
-                action: Some("action_a".to_string()),
-            },
-            Rule {
-                name: "second".to_string(),
-                disabled: false,
-                log: log::LevelFilter::Off,
-                tests: vec![Program::compile("request.method == 'GET'")?],
-                action: Some("action_b".to_string()),
-            },
+            Rule::from_parts(
+                "first",
+                false,
+                log::LevelFilter::Off,
+                vec!["request.method == 'GET'"],
+                Some("action_a"),
+            ),
+            Rule::from_parts(
+                "first",
+                false,
+                log::LevelFilter::Off,
+                vec!["request.method == 'GET'"],
+                Some("action_b"),
+            ),
         ]);
         let out = m.eval(&req)?;
         assert_eq!(Outcome::Match(Some("action_a")), out);
@@ -170,13 +169,13 @@ mod tests {
     #[test]
     fn test_match_returns_action_name() -> TestResult {
         let req = Request::from_parts("/foo", "GET", "HTTP/1.1", HashMap::new());
-        let m = Matcher::new(vec![Rule {
-            name: "with_action".to_string(),
-            disabled: false,
-            log: log::LevelFilter::Off,
-            tests: vec![Program::compile("request.method == 'GET'")?],
-            action: Some("block".to_string()),
-        }]);
+        let m = Matcher::new(vec![Rule::from_parts(
+            "test",
+            false,
+            log::LevelFilter::Off,
+            vec!["request.method == 'GET'"],
+            Some("block"),
+        )]);
         let out = m.eval(&req)?;
         assert_eq!(Outcome::Match(Some("block")), out);
         Ok(())
@@ -185,13 +184,13 @@ mod tests {
     #[test]
     fn test_non_matching_rule() -> TestResult {
         let req = Request::from_parts("/foo", "POST", "HTTP/1.1", HashMap::new());
-        let m = Matcher::new(vec![Rule {
-            name: "get_only".to_string(),
-            disabled: false,
-            log: log::LevelFilter::Off,
-            tests: vec![Program::compile("request.method == 'GET'")?],
-            action: None,
-        }]);
+        let m = Matcher::new(vec![Rule::from_parts(
+            "get_only",
+            false,
+            log::LevelFilter::Off,
+            vec!["request.method == 'GET'"],
+            None,
+        )]);
         let out = m.eval(&req)?;
         assert_eq!(Outcome::NoMatch, out);
         Ok(())
@@ -217,16 +216,13 @@ mod tests {
     #[test]
     fn test_multiple_tests_any_matches() -> TestResult {
         let req = Request::from_parts("/foo", "POST", "HTTP/1.1", HashMap::new());
-        let m = Matcher::new(vec![Rule {
-            name: "any_test".to_string(),
-            disabled: false,
-            log: log::LevelFilter::Off,
-            tests: vec![
-                Program::compile("request.method == 'GET'")?,
-                Program::compile("request.method == 'POST'")?,
-            ],
-            action: None,
-        }]);
+        let m = Matcher::new(vec![Rule::from_parts(
+            "get_only",
+            false,
+            log::LevelFilter::Off,
+            vec!["request.method == 'GET'", "request.method == 'POST'"],
+            None,
+        )]);
         let out = m.eval(&req)?;
         assert_eq!(Outcome::Match(None), out);
         Ok(())
@@ -235,13 +231,13 @@ mod tests {
     #[test]
     fn test_path_matching() -> TestResult {
         let req = Request::from_parts("/api/v1/users", "GET", "HTTP/1.1", HashMap::new());
-        let m = Matcher::new(vec![Rule {
-            name: "api_route".to_string(),
-            disabled: false,
-            log: log::LevelFilter::Off,
-            tests: vec![Program::compile("request.path.matches('^/api')")?],
-            action: None,
-        }]);
+        let m = Matcher::new(vec![Rule::from_parts(
+            "get_only",
+            false,
+            log::LevelFilter::Off,
+            vec!["request.method == 'GET'"],
+            None,
+        )]);
         let out = m.eval(&req)?;
         assert_eq!(Outcome::Match(None), out);
         Ok(())

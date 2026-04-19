@@ -38,26 +38,22 @@ fn combine(paths: &[PathBuf]) -> Box<dyn Read> {
 
     for path in paths {
         match std::fs::File::open(path) {
-            Ok(file) => {
-                readers.push(BufReader::new(file));
-            }
-            Err(err) => {
-                log::warn!("unable to open file: {}, error: {}", path.display(), err);
-            }
+            Ok(file) => readers.push(BufReader::new(file)),
+            Err(err) => log::warn!("unable to open file: {}, error: {}", path.display(), err),
         }
     }
 
-    // Chain from last to first (last file read first for sequential reading)
-    let mut combined: Box<dyn Read> = match readers.pop() {
-        Some(reader) => Box::new(reader),
-        None => Box::new(io::empty()),
-    };
-
-    while let Some(reader) = readers.pop() {
-        combined = Box::new(reader.chain(combined));
+    match readers.len() {
+        0 => Box::new(io::empty()),
+        1 => Box::new(readers.into_iter().next().unwrap()),
+        _ => {
+            let mut combined: Box<dyn Read> = Box::new(readers.pop().unwrap());
+            while let Some(reader) = readers.pop() {
+                combined = Box::new(reader.chain(combined));
+            }
+            combined
+        }
     }
-
-    combined
 }
 
 #[cfg(test)]
