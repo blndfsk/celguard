@@ -24,11 +24,11 @@ impl Handler {
 fn execute(action: &Action, response: &Response) -> bool {
     if let Some(resp) = &action.response {
         for (key, value) in &resp.header {
-            response.header().set(key.as_bytes(), value.as_bytes());
+            response.header.set(key.as_bytes(), value.as_bytes());
         }
         response.set_status(resp.status);
         if let Some(body) = &resp.body {
-            response.body().write(body.as_bytes());
+            response.body.write(body.as_bytes());
         }
     }
     action.r#continue

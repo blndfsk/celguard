@@ -64,7 +64,7 @@ impl TryFrom<&host::Request> for Request {
             path: request.uri().to_string(),
             method: request.method().to_string(),
             version: request.version().to_string(),
-            header: map_header(request.header()),
+            header: map_header(&request.header),
         })
     }
 }
