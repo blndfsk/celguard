@@ -1,3 +1,5 @@
+use std::borrow::Cow;
+
 use anyhow::Result;
 
 use cel::Program;
@@ -22,8 +24,8 @@ where
             A: serde::de::SeqAccess<'de>,
         {
             let mut programs = Vec::with_capacity(seq.size_hint().unwrap_or(32));
-            while let Some(s) = seq.next_element::<&str>()? {
-                programs.push(Program::compile(s).map_err(serde::de::Error::custom)?);
+            while let Some(s) = seq.next_element::<Cow<str>>()? {
+                programs.push(Program::compile(&s).map_err(serde::de::Error::custom)?);
             }
             Ok(programs)
         }

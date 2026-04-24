@@ -78,7 +78,9 @@ mod tests {
                 tests:
                   - request.method == "GET" && request.path.matches('^/api')
                 action: myjail"#;
-        let config: Config = serde_saphyr::from_str(cfg)?;
+        let r = BufReader::new(cfg.as_bytes());
+        let config: Config = serde_saphyr::from_reader(r)?;
+
         assert!(config.actions.contains_key("myjail"));
         assert_eq!(config.rules.len(), 1);
         assert_eq!(config.rules.first().unwrap().name, "get_foobar");
