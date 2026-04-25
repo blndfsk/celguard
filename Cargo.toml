@@ -15,3 +15,13 @@ anyhow = "1.0"
 [dev-dependencies]
 test-log = "0.2"
 testresult = "0.4.1"
+
+
+[lints.clippy]
+panic = "deny"
+unwrap_used = "deny"
+missing_assert_message = "warn"
+map_unwrap_or = "warn"
+get_unwrap = "warn"
+unwrap_in_result = "warn"
+string_slice = "warn"

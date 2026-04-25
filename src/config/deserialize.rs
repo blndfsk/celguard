@@ -1,4 +1,4 @@
-use std::borrow::Cow;
+use std::{borrow::Cow, str::FromStr};
 
 use anyhow::Result;
 
@@ -51,7 +51,7 @@ where
         where
             E: serde::de::Error,
         {
-            s.parse::<LevelFilter>().map_err(serde::de::Error::custom)
+            LevelFilter::from_str(s).map_err(serde::de::Error::custom)
         }
     }
 

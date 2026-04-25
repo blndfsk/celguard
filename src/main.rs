@@ -1,4 +1,3 @@
-use anyhow::Error;
 use http_wasm_guest::{
     Guest, HostLogger,
     host::{Request, Response},
@@ -21,17 +20,16 @@ struct Plugin<'a> {
 
 impl<'a> Guest for Plugin<'a> {
     fn handle_request(&self, request: &Request, response: &Response) -> (bool, i32) {
-        match self.matcher.evaluate(request).unwrap_or_else(handle_err) {
-            Outcome::Match(Some(action)) => (self.handler.execute(action, response), 0),
-            Outcome::Match(None) => (false, 0),
-            Outcome::NoMatch => (true, 0),
+        match self.matcher.evaluate(request) {
+            Ok(Outcome::Match(Some(action))) => (self.handler.execute(action, response), 0),
+            Ok(Outcome::Match(None)) => (false, 0),
+            Ok(Outcome::NoMatch) => (true, 0),
+            Err(err) => {
+                log::error!("Matcher: {}", err);
+                (true, 0)
+            }
         }
     }
-}
-
-fn handle_err<'a>(err: Error) -> Outcome<'a> {
-    log::error!("Matcher: {}", err);
-    Outcome::NoMatch
 }
 
 fn main() {

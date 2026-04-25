@@ -30,8 +30,7 @@ impl Display for Request {
             self.header
                 .get("user-agent")
                 .filter(|s| !s.is_empty())
-                .map(|s| s.as_str())
-                .unwrap_or("-")
+                .map_or("-", |s| s.as_str())
         )
     }
 }
@@ -71,12 +70,12 @@ impl TryFrom<&host::Request> for Request {
 
 fn map_header(header: &host::Header) -> HashMap<String, String> {
     header
-        .entries_iter()
-        .map(|(key, value)| {
+        .names_iter()
+        .map(|key| {
             (
                 key.to_string().to_lowercase(),
-                value
-                    .iter()
+                header
+                    .values_iter(&key)
                     .map(|i| i.to_string())
                     .collect::<Vec<_>>()
                     .join(", "),

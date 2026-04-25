@@ -31,8 +31,7 @@ rules:
     disabled: false
     tests:
       - request.header.contains('user-agent') == false
-      - request.header['user-agent'].matches('(?i)gpt')
-    action: myresponse                        # optional
+    action: myresponse                               # optional, default action is 403 without body
 ```
 
 ### Request Object

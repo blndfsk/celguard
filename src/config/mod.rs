@@ -45,9 +45,9 @@ fn combine(paths: &[PathBuf]) -> Box<dyn Read> {
 
     match readers.len() {
         0 => Box::new(io::empty()),
-        1 => Box::new(readers.into_iter().next().unwrap()),
         _ => {
-            let mut combined: Box<dyn Read> = Box::new(readers.pop().unwrap());
+            let mut combined: Box<dyn Read> =
+                Box::new(readers.pop().expect("at least one element"));
             while let Some(reader) = readers.pop() {
                 combined = Box::new(reader.chain(combined));
             }
