@@ -10,7 +10,7 @@ pub(super) struct Request {
     path: String,
     method: String,
     version: String,
-    header: HashMap<String, String>,
+    header: HashMap<String, Vec<String>>,
 }
 impl Opaque for Request {
     fn runtime_type_name(&self) -> &str {
@@ -21,16 +21,21 @@ impl Opaque for Request {
 ///"GET /apache_pb.gif HTTP/1.0" curl/
 impl Display for Request {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let user_agent = self
+            .header
+            .get("user-agent")
+            .and_then(|v| {
+                if v.is_empty() {
+                    Some("-".to_string())
+                } else {
+                    Some(v.join(", "))
+                }
+            })
+            .unwrap_or_else(|| "-".to_string());
         write!(
             f,
             "\"{} {} {}\" {}",
-            self.method,
-            self.path,
-            self.version,
-            self.header
-                .get("user-agent")
-                .filter(|s| !s.is_empty())
-                .map_or("-", |s| s.as_str())
+            self.method, self.path, self.version, user_agent
         )
     }
 }
@@ -44,7 +49,7 @@ impl Request {
         path: &str,
         method: &str,
         version: &str,
-        header: HashMap<String, String>,
+        header: HashMap<String, Vec<String>>,
     ) -> Self {
         Request {
             path: path.to_string(),
@@ -68,18 +73,16 @@ impl TryFrom<&host::Request> for Request {
     }
 }
 
-fn map_header(header: &host::Header) -> HashMap<String, String> {
+fn map_header(header: &host::Header) -> HashMap<String, Vec<String>> {
     header
         .names_iter()
-        .map(|key| {
-            (
-                key.to_string().to_lowercase(),
-                header
-                    .values_iter(&key)
-                    .map(|i| i.to_string())
-                    .collect::<Vec<_>>()
-                    .join(", "),
-            )
+        .map(|name| {
+            let key = name.to_string().to_lowercase();
+            let val = header
+                .values_iter(&name)
+                .map(|i| i.to_string())
+                .collect::<Vec<_>>();
+            (key, val)
         })
         .collect()
 }
@@ -94,7 +97,7 @@ mod tests {
             "/foo/bar",
             "GET",
             "HTTP/1.1",
-            HashMap::from([("user-agent".to_string(), "curl/8.0".to_string())]),
+            HashMap::from([("user-agent".to_string(), vec!["curl/8.0".to_string()])]),
         );
         assert_eq!(format!("{}", req), "\"GET /foo/bar HTTP/1.1\" curl/8.0");
     }
@@ -111,7 +114,7 @@ mod tests {
             "/",
             "GET",
             "HTTP/1.0",
-            HashMap::from([("user-agent".to_string(), "".to_string())]),
+            HashMap::from([("user-agent".to_string(), vec![])]),
         );
         assert_eq!(format!("{}", req), "\"GET / HTTP/1.0\" -");
     }

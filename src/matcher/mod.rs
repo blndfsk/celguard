@@ -79,18 +79,18 @@ mod tests {
     }
 
     #[test]
-    fn test_request_header_wrong_use() -> TestResult {
+    fn test_request_header_match() -> TestResult {
         let req = Request::from_parts(
             "/foo/bar",
             "GET",
             "HTTP/1.1",
-            HashMap::from([("user-agent".to_string(), "curl/123".to_string())]),
+            HashMap::from([("user-agent".to_string(), vec!["Curl/123".to_string()])]),
         );
         let m = Matcher::new(vec![Rule::from_parts(
             "test",
             false,
             log::LevelFilter::Off,
-            vec!["request.header['user-agent'].all(h, h.matches('(?i)curl'))"],
+            vec!["request.header['user-agent'].contains((?i)'curl/123')"],
             None,
         )]);
         let out = m.eval(&req).unwrap();
@@ -104,7 +104,7 @@ mod tests {
             "/foo/bar",
             "GET",
             "HTTP/1.1",
-            HashMap::from([("user-agent".to_string(), "curl/123".to_string())]),
+            HashMap::from([("user-agent".to_string(), vec!["curl/123".to_string()])]),
         );
         let m = Matcher::new(vec![Rule::from_parts(
             "test",
