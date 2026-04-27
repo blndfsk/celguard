@@ -58,10 +58,7 @@ impl Rule {
             name: name.to_string(),
             disabled,
             log,
-            tests: tests
-                .iter()
-                .flat_map(|s| Program::compile(s))
-                .collect::<Vec<_>>(),
+            tests: tests.iter().flat_map(|s| Program::compile(s)).collect::<Vec<_>>(),
             action: action.map(String::from),
         }
     }

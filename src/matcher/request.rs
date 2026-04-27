@@ -21,22 +21,13 @@ impl Opaque for Request {
 ///"GET /apache_pb.gif HTTP/1.0" curl/
 impl Display for Request {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let user_agent = self
-            .header
-            .get("user-agent")
-            .and_then(|v| {
-                if v.is_empty() {
-                    Some("-".to_string())
-                } else {
-                    Some(v.join(", "))
-                }
-            })
-            .unwrap_or_else(|| "-".to_string());
-        write!(
-            f,
-            "\"{} {} {}\" {}",
-            self.method, self.path, self.version, user_agent
-        )
+        let user_agent = self.header.get("user-agent").map_or_else(
+            || "-".to_string(),
+            |v| {
+                if v.is_empty() { "-".to_string() } else { v.join(", ") }
+            },
+        );
+        write!(f, "\"{} {} {}\" {}", self.method, self.path, self.version, user_agent)
     }
 }
 
@@ -78,10 +69,7 @@ fn map_header(header: &host::Header) -> HashMap<String, Vec<String>> {
         .names_iter()
         .map(|name| {
             let key = name.to_string().to_lowercase();
-            let val = header
-                .values_iter(&name)
-                .map(|i| i.to_string())
-                .collect::<Vec<_>>();
+            let val = header.values_iter(&name).map(|i| i.to_string()).collect::<Vec<_>>();
             (key, val)
         })
         .collect()

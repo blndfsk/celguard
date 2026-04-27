@@ -23,9 +23,9 @@ impl<'a> Matcher<'a> {
     pub(crate) fn new(rules: Vec<Rule>) -> Self {
         let mut context = cel::Context::default();
         context.add_function("to_lower", |This(s): This<Arc<String>>| s.to_lowercase());
-        context.add_function("equals", |This(s): This<Arc<String>>, o: Arc<String>| {
-            s.eq(&o)
-        });
+        context.add_function("equals", |This(s): This<Arc<String>>, o: Arc<String>| s.eq(&o));
+        //TODO
+        // domain specific functions
 
         Matcher { context, rules }
     }
