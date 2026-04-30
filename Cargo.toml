@@ -7,7 +7,7 @@ rust-version = "1.88.0"
 [dependencies]
 http-wasm-guest = "0.11"
 serde = { version = "1.0", default-features = false, features = ["derive"]}
-serde-saphyr = "0.0.24"
+serde-saphyr = "0.0.25"
 log = "0.4"
 cel = "0.13"
 anyhow = "1.0"
