@@ -26,7 +26,10 @@ fn execute(action: &Action, response: &Response) -> bool {
         for (key, value) in &resp.header {
             response.header.set(key.as_bytes(), value.as_bytes());
         }
-        response.set_status(resp.status);
+        match resp.status {
+            Some(status) => response.set_status(status),
+            None => response.set_status(403), //TODO read from config
+        };
         if let Some(body) = &resp.body {
             response.body.write(body.as_bytes());
         }

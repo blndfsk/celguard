@@ -1,16 +1,25 @@
 actions:
   allow:
     continue: true
-  block:
-    response: { status: 403, body: blocked }
+  forbidden:
+    response: { status: 403, body: forbidden }
   method_not_allowed:
     response: { status: 405, header: { allow: "GET, HEAD" } }
+
 rules:
   - name: method
     log: warn
     tests:
       - request.method in ['GET','HEAD'] != true
     action: method_not_allowed
+
+  - name: empty_agent
+    log: warn
+    tests:
+      - request.header.has('user-agent') == false
+      - request.header['user-agent'] == []
+    action: forbidden
+
   - name: whitelist
     tests:
       - request.path == '/'
@@ -21,8 +30,7 @@ rules:
       - request.path.startsWith('/css/')
       - request.path.startsWith('/images/')
     action: allow
+
   - name: default
     log: warn
-    tests:
-      - true
-    action: block
+    action: forbidden

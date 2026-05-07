@@ -142,23 +142,6 @@ mod tests {
     }
 
     #[test_log::test]
-    fn test_response_default_status() -> TestResult {
-        let cfg = r#"
-            actions:
-              block:
-                response: {}
-            rules:
-              - name: test
-                tests:
-                  - request.method == 'GET'"#;
-        let config: Config = serde_saphyr::from_str(cfg)?;
-        let action = config.actions.get("block").unwrap();
-        let resp = action.response.as_ref().unwrap();
-        assert_eq!(resp.status, 403);
-        Ok(())
-    }
-
-    #[test_log::test]
     fn test_action_default_continue_is_false() -> TestResult {
         let cfg = r#"
             actions:

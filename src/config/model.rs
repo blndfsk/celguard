@@ -5,7 +5,6 @@ use log::LevelFilter;
 use serde::Deserialize;
 
 #[derive(Deserialize, Debug, Default)]
-#[serde(tag = "type", rename_all = "lowercase")]
 pub(crate) struct Action {
     pub(crate) response: Option<Response>,
     #[serde(default)]
@@ -14,8 +13,7 @@ pub(crate) struct Action {
 
 #[derive(Deserialize, Debug)]
 pub(crate) struct Response {
-    #[serde(default = "super::deserialize::default_status")]
-    pub(crate) status: i32,
+    pub(crate) status: Option<i32>,
     #[serde(default)]
     pub(crate) body: Option<String>,
     #[serde(default)]
@@ -40,7 +38,7 @@ pub(crate) struct Rule {
         default = "super::deserialize::default_level"
     )]
     pub(crate) log: LevelFilter,
-    #[serde(deserialize_with = "super::deserialize::deserialize_program")]
+    #[serde(default, deserialize_with = "super::deserialize::deserialize_program")]
     pub(crate) tests: Vec<Program>,
     pub(crate) action: Option<String>,
 }

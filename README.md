@@ -1,8 +1,6 @@
 # celguard
 
-A Traefik plugin written in Rust.
-
-This plugin filters incoming requests based on easy-to-configure rules using the Common Expression Language (CEL).
+This traefik plugin filters incoming requests based on easy-to-configure rules using the Common Expression Language (CEL).
 The intended use is for small sites that want to block or log certain requests without needing a full WAF solution.
 
 ## Features
@@ -40,22 +38,22 @@ You can match on any part of the request:
 
 ```yaml
 request:
-  path: "/foobar"
-  method: GET
-  version: HTTP/1.1
-  header:
-    user-agent: curl/123
-    host: whoami.localhost:8080
-    accept: "*/*"
+    path: /.foobar
+    method: GET
+    version: HTTP/1.1
+    header:
+        host: [whoami.localhost:8080]
+        user-agent: [curl/8.20.0]
+        accept: ["*/*"]
 ```
 
 ### CEL Expression Example
 
 ```c
-request.header['user-agent'].matches('(?i)curl')
+request.path.startsWith('/.')
 ```
 
-You can experiment with CEL syntax at [playcel.undistro.io](https://playcel.undistro.io/?content=H4sIAAAAAAAAA0WQwU7EMAxEfyXKZWEFScOipfIXwImVqMSlEjKJQyq1SUkcOCD%2BnWb3wNHPI8%2BMf6SlWYLM9FmpsFqRgyqMmcvrxOFqp9XueozyRjpkfIpr5X81jFGIkmq29DatIDz1HQDeGwvWeQ%2BerIGHwxGbrl0GMUqtfErvmEfZ6EIckgNxen4Z2vxFuUwpgngchpM2yjQYCB3ls5sQtVC%2BxQ%2BKDMLWPGtzd7hsQtoiie%2BQcJnUnCzOZ9J3fXcRoLW0cgux1%2Fvmv9VakqOtUfvC7x%2F24TWjDQEAAA%3D%3D).
+You can experiment with CEL syntax at [playcel.undistro.io](https://playcel.undistro.io/?content=H4sIAAAAAAAAA1WQwW6DMAyGXyXKoUBVAt0J5T5tu%2B2AtEPpwSNugwQJc8xaadq7j5RObX38%2Fk%2FWb%2F%2FIFnupJeHXhIHVCGxVYCAOHx3bNClUkonVSjTOQkj%2FNYtgkK7BI9wl1gdO9grPXeCQ2o143HiyHoYuybLGyY00wPDmxolvJXTjxDyxihaFOnhPn0ALHJCtN1q8PNcL%2BEYKnXdavNb1e7FV2wUvXa6b4pzzg6cTkEGTj%2BTZa7GzzOP%2BpsTeM136qd630F9QVVblnTYFpByO6KLcTtQXlXoq1b0CbYtjjBu5LtaNnKPLsYM3ON8ZX%2F77B%2FWBVx16AQAA).
 
 ## Installation
 

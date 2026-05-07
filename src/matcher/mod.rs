@@ -23,9 +23,8 @@ impl<'a> Matcher<'a> {
     pub(crate) fn new(rules: Vec<Rule>) -> Self {
         let mut context = cel::Context::default();
         context.add_function("to_lower", |This(s): This<Arc<String>>| s.to_lowercase());
-        context.add_function("equals", |This(s): This<Arc<String>>, o: Arc<String>| s.eq(&o));
-        //TODO
-        // domain specific functions
+        //ontext.add_function("equals", |This(s): This<Value>, o: Value| s.eq(&o));
+        //context.add_function("has", has);
 
         Matcher { context, rules }
     }
@@ -40,7 +39,10 @@ impl<'a> Matcher<'a> {
         context.add_variable("request", &request)?;
 
         for rule in &self.rules {
-            if !rule.disabled && rule.tests.iter().any(|program| is_match(program, &context)) {
+            if !rule.disabled
+                && (rule.tests.is_empty()
+                    || rule.tests.iter().any(|program| is_match(program, &context)))
+            {
                 if let Some(level) = rule.log.to_level() {
                     log!(level, "{} => {}", rule.name, request);
                 }
@@ -61,6 +63,7 @@ fn is_match(program: &Program, context: &Context) -> bool {
         }
     }
 }
+
 #[cfg(test)]
 mod tests {
     use std::collections::HashMap;
@@ -94,7 +97,7 @@ mod tests {
             None,
         )]);
         let out = m.eval(&req).unwrap();
-        assert_eq!(Outcome::NoMatch, out);
+        assert_eq!(Outcome::Match(None), out);
         Ok(())
     }
 
@@ -200,16 +203,6 @@ mod tests {
     fn test_non_bool_expression_is_no_match() {
         let matcher = Matcher::new(Vec::new());
         let program = Program::compile("'hello'").unwrap();
-        assert!(!is_match(&program, &matcher.context));
-    }
-
-    #[test]
-    fn test_equals_function() {
-        let matcher = Matcher::new(Vec::new());
-        let program = Program::compile("equals('hello', 'hello')").unwrap();
-        assert!(is_match(&program, &matcher.context));
-
-        let program = Program::compile("equals('hello', 'world')").unwrap();
         assert!(!is_match(&program, &matcher.context));
     }
 

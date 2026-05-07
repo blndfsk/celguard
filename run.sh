@@ -28,6 +28,7 @@ traefik_container=localhost/$plugin
 traefik_parameter="--experimental.localplugins.$plugin.modulename=$plugin --experimental.localplugins.$plugin.settings.mounts=$ROOT_DIR/config/"
 
 podman run -d --pod $pod --replace --name whoami \
+    --label "traefik.enable=true" \
     --label 'traefik.http.routers.whoami.rule=Host(`whoami.localhost`)' \
     --label "traefik.http.routers.whoami.middlewares=$plugin" \
     --label "traefik.http.routers.whoami.service=whoami" \
@@ -40,4 +41,7 @@ podman run -d --pod $pod --replace --name whoami \
     podman run -it --rm --pod $pod \
         --volume /run/user/${UID}/podman/podman.sock:/var/run/docker.sock \
         --volume ./config:$ROOT_DIR/config/ \
-        $traefik_container --entrypoints.web.address=:8080 --providers.docker=true --log.level=INFO $traefik_parameter
+        $traefik_container --entrypoints.web.address=:8080 --providers.docker=true --providers.docker.exposedbydefault=false \
+        --log.level=INFO \
+        --global.checknewversion=false \
+        $traefik_parameter

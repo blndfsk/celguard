@@ -61,7 +61,3 @@ where
 pub(super) fn default_level() -> LevelFilter {
     LevelFilter::Off
 }
-
-pub(super) fn default_status() -> i32 {
-    403
-}
