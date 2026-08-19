@@ -42,12 +42,7 @@ impl Request {
         version: &str,
         header: HashMap<String, Vec<String>>,
     ) -> Self {
-        Request {
-            path: path.to_string(),
-            method: method.to_string(),
-            version: version.to_string(),
-            header: header,
-        }
+        Request { path: path.into(), method: method.into(), version: version.into(), header }
     }
 }
 
@@ -56,9 +51,9 @@ impl TryFrom<&host::Request> for Request {
 
     fn try_from(request: &host::Request) -> std::result::Result<Self, Self::Error> {
         Ok(Request {
-            path: request.uri().to_string(),
-            method: request.method().to_string(),
-            version: request.version().to_string(),
+            path: request.uri().into(),
+            method: request.method().into(),
+            version: request.version().into(),
             header: map_header(&request.header),
         })
     }
@@ -68,8 +63,9 @@ fn map_header(header: &host::Header) -> HashMap<String, Vec<String>> {
     header
         .names_iter()
         .map(|name| {
-            let key = name.to_string().to_lowercase();
-            let val = header.values_iter(&name).map(|i| i.to_string()).collect::<Vec<_>>();
+            let val = header.values_iter(&name).map(|i| i.into()).collect::<Vec<_>>();
+            let mut key: String = name.into();
+            key.make_ascii_lowercase();
             (key, val)
         })
         .collect()

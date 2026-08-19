@@ -1,11 +1,43 @@
-use std::{borrow::Cow, str::FromStr};
-
-use anyhow::Result;
+use crate::model::Action;
 
 use cel::Program;
 use log::LevelFilter;
+use serde::{Deserialize, Deserializer};
+use serde_saphyr::RcAnchor;
+use std::borrow::Cow;
+use std::str::FromStr;
 
-use serde::de::Deserializer;
+#[derive(Deserialize, Debug)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct Rule {
+    pub(crate) name: String,
+    #[serde(default)]
+    pub(crate) disabled: bool,
+    #[serde(deserialize_with = "deserialize_level", default = "default_level")]
+    pub(crate) log: LevelFilter,
+    #[serde(default, deserialize_with = "deserialize_program")]
+    pub(crate) tests: Vec<Program>,
+    pub(crate) action: Option<RcAnchor<Action>>,
+}
+
+impl Rule {
+    #[cfg(test)]
+    pub(crate) fn from_parts(
+        name: &str,
+        disabled: bool,
+        log: LevelFilter,
+        tests: Vec<&str>,
+        action: Option<RcAnchor<Action>>,
+    ) -> Rule {
+        Rule {
+            name: name.to_string(),
+            disabled,
+            log,
+            tests: tests.iter().flat_map(|s| Program::compile(s)).collect::<Vec<_>>(),
+            action,
+        }
+    }
+}
 
 pub(super) fn deserialize_program<'de, D>(deserializer: D) -> Result<Vec<Program>, D::Error>
 where

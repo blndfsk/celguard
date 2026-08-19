@@ -1,21 +1,24 @@
-use std::sync::Arc;
-
+use crate::{
+    matcher::request::Request,
+    model::{Action, Rule},
+};
 use anyhow::Result;
-
 use cel::{Context, Program, Value, extractors::This};
 use http_wasm_guest::host;
 use log::log;
+use std::sync::Arc;
 
-use crate::{config::Rule, matcher::request::Request};
+mod function;
 mod request;
 
 pub(crate) struct Matcher<'a> {
     context: Context<'a>,
     rules: Vec<Rule>,
 }
+
 #[derive(Debug, PartialEq)]
 pub(crate) enum Outcome<'a> {
-    Match(Option<&'a str>),
+    Match(&'a Action),
     NoMatch,
 }
 
@@ -23,30 +26,34 @@ impl<'a> Matcher<'a> {
     pub(crate) fn new(rules: Vec<Rule>) -> Self {
         let mut context = cel::Context::default();
         context.add_function("to_lower", |This(s): This<Arc<String>>| s.to_lowercase());
-        //ontext.add_function("equals", |This(s): This<Value>, o: Value| s.eq(&o));
-        //context.add_function("has", has);
+        context.add_function("equals", |This(s): This<Value>, o: Value| s.eq(&o));
+        context.add_function("has", function::has);
 
         Matcher { context, rules }
     }
 
-    pub(crate) fn evaluate<'b>(&'a self, request: &'b host::Request) -> Result<Outcome<'a>> {
+    pub(crate) fn evaluate(&self, request: &host::Request) -> Result<Outcome<'_>> {
         let request = Request::try_from_host(request)?;
         self.eval(&request)
     }
 
-    fn eval<'b>(&'a self, request: &'b Request) -> Result<Outcome<'a>> {
+    fn eval(&self, request: &Request) -> Result<Outcome<'_>> {
         let mut context = self.context.new_inner_scope();
         context.add_variable("request", &request)?;
 
         for rule in &self.rules {
             if !rule.disabled
-                && (rule.tests.is_empty()
-                    || rule.tests.iter().any(|program| is_match(program, &context)))
+                && (rule.tests.is_empty() || rule.tests.iter().any(|p| is_match(p, &context)))
             {
                 if let Some(level) = rule.log.to_level() {
                     log!(level, "{} => {}", rule.name, request);
                 }
-                return Ok(Outcome::Match(rule.action.as_deref()));
+                return Ok(Outcome::Match({
+                    match &rule.action {
+                        Some(anchor) => &anchor.0,
+                        None => Action::default_action(),
+                    }
+                }));
             }
         }
         Ok(Outcome::NoMatch)
@@ -66,13 +73,11 @@ fn is_match(program: &Program, context: &Context) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use std::collections::HashMap;
-
-    use testresult::TestResult;
-
-    use crate::config::Rule;
-
     use super::*;
+
+    use serde_saphyr::RcAnchor;
+    use std::{collections::HashMap, ptr, rc::Rc};
+    use testresult::TestResult;
 
     #[test]
     fn test_to_lower() {
@@ -96,8 +101,8 @@ mod tests {
             vec!["request.header['user-agent'].contains((?i)'curl/123')"],
             None,
         )]);
-        let out = m.eval(&req).unwrap();
-        assert_eq!(Outcome::Match(None), out);
+        let out = m.eval(&req)?;
+        assert_eq!(Outcome::Match(Action::default_action()), out);
         Ok(())
     }
 
@@ -117,7 +122,7 @@ mod tests {
             None,
         )]);
         let out = m.eval(&req)?;
-        assert_eq!(Outcome::Match(None), out);
+        assert_eq!(Outcome::Match(Action::default_action()), out);
         Ok(())
     }
 
@@ -139,24 +144,26 @@ mod tests {
     #[test]
     fn test_first_matching_rule_wins() -> TestResult {
         let req = Request::from_parts("/foo", "GET", "HTTP/1.1", HashMap::new());
+        let action1 = RcAnchor::from(Rc::from(Action::default()));
+        let action2 = RcAnchor::from(Rc::from(Action::default()));
         let m = Matcher::new(vec![
             Rule::from_parts(
                 "first",
                 false,
                 log::LevelFilter::Off,
                 vec!["request.method == 'GET'"],
-                Some("action_a"),
+                Some(RcAnchor::from(action1.clone())),
             ),
             Rule::from_parts(
-                "first",
+                "second",
                 false,
                 log::LevelFilter::Off,
                 vec!["request.method == 'GET'"],
-                Some("action_b"),
+                Some(RcAnchor::from(action2.clone())),
             ),
         ]);
         let out = m.eval(&req)?;
-        assert_eq!(Outcome::Match(Some("action_a")), out);
+        assert_eq!(Outcome::Match(&action1), out);
         Ok(())
     }
 
@@ -170,17 +177,18 @@ mod tests {
     }
 
     #[test]
-    fn test_match_returns_action_name() -> TestResult {
+    fn test_match_returns_action() -> TestResult {
         let req = Request::from_parts("/foo", "GET", "HTTP/1.1", HashMap::new());
+        let action = RcAnchor::from(Rc::from(Action::default()));
         let m = Matcher::new(vec![Rule::from_parts(
             "test",
             false,
             log::LevelFilter::Off,
             vec!["request.method == 'GET'"],
-            Some("block"),
+            Some(RcAnchor::from(action.clone())),
         )]);
         let out = m.eval(&req)?;
-        assert_eq!(Outcome::Match(Some("block")), out);
+        assert_eq!(Outcome::Match(&action), out);
         Ok(())
     }
 
@@ -196,6 +204,24 @@ mod tests {
         )]);
         let out = m.eval(&req)?;
         assert_eq!(Outcome::NoMatch, out);
+        Ok(())
+    }
+
+    #[test]
+    fn test_matching_rule_without_action() -> TestResult {
+        let req = Request::from_parts("/foo", "GET", "HTTP/1.1", HashMap::new());
+        let m = Matcher::new(vec![Rule::from_parts(
+            "get_only",
+            false,
+            log::LevelFilter::Off,
+            vec!["request.method == 'GET'"],
+            None,
+        )]);
+        let out = m.eval(&req)?;
+        let Outcome::Match(action) = out else { panic!() };
+        assert_eq!(Action::default_action(), action);
+        assert!(ptr::addr_eq(Action::default_action(), action));
+        assert!(action.response.is_none());
         Ok(())
     }
 
@@ -217,7 +243,7 @@ mod tests {
             None,
         )]);
         let out = m.eval(&req)?;
-        assert_eq!(Outcome::Match(None), out);
+        assert_eq!(Outcome::Match(Action::default_action()), out);
         Ok(())
     }
 
@@ -232,7 +258,7 @@ mod tests {
             None,
         )]);
         let out = m.eval(&req)?;
-        assert_eq!(Outcome::Match(None), out);
+        assert_eq!(Outcome::Match(Action::default_action()), out);
         Ok(())
     }
 }

@@ -1,26 +1,32 @@
 # AGENTS.md
 
-## Build & Test
+## Project Overview
 
-```bash
-# Build WASM plugin
-cargo build --target wasm32-wasip1 --release
+A Traefik Wasm plugin (Rust) that evaluates incoming requests against CEL rules and executes the matching action (e.g. blocking the request).
 
-# Run tests
-cargo test
+- Wasm host API: `http-wasm-guest`, registered in `src/main.rs`
+- Rule config: YAML via `serde-saphyr`, example in `config/rules.yaml`
+- Request flow: `src/main.rs` → `Plugin::handle_request` → `matcher::Matcher::evaluate` → action
+- Version control: git
 
-# Lint (fmt + clippy)
-cargo fmt --check
-cargo clippy --target wasm32-wasip1
-```
+## Tools
 
-## Local Development
+- Use `fd` instead of `find` — e.g. `fd PATTERN`
+- Use `rg` instead of `grep` — e.g. `rg PATTERN`
 
-`./run.sh` builds the plugin, starts Traefik with the plugin, and runs a whoami backend. Requires podman and buildah.
+## Commands
 
-## Key Constraints
+| Task | Command |
+| --- | --- |
+| Build Wasm plugin (release) | `cargo build --target wasm32-wasip1 --release` |
+| Run tests | `cargo test` |
+| Check formatting | `cargo fmt --check` |
+| Lint | `cargo clippy --target wasm32-wasip1` |
 
-- **Edition**: 2024, requires Rust 1.88.0+
-- **Target**: wasm32-wasip1 (WASI Preview 1)
-- **Max line width**: 100 (see `.rustfmt.toml`)
-- **Memory efficiency**: Minimize allocs, avoid copies/clones where possible
+## Constraints
+
+- **Rust**: edition 2024, minimum 1.88.0
+- **Target**: `wasm32-wasip1` (WASI Preview 1)
+- **Formatting**: max line width 100 (see `.rustfmt.toml`)
+- **Error handling**: clippy denies `panic!` and `unwrap()` (see `[lints.clippy]` in `Cargo.toml`) — propagate errors via `Result`/`anyhow` instead
+- **Memory**: minimize heap allocations; avoid copies/clones where possible

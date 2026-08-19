@@ -1,8 +1,3 @@
-mod deserialize;
-mod model;
-
-pub(crate) use model::{Action, Config, Rule};
-
 use std::{
     io::{self, BufReader, Read},
     path::PathBuf,
@@ -11,6 +6,13 @@ use std::{
 use anyhow::{Error, Result};
 use http_wasm_guest::host;
 use serde::Deserialize;
+
+use crate::model::Rule;
+
+#[derive(Deserialize, Debug, Default)]
+pub(crate) struct Config {
+    pub(crate) rules: Vec<Rule>,
+}
 
 #[derive(Debug, Deserialize)]
 struct HostConfig {
@@ -35,7 +37,6 @@ fn read_from(paths: &[PathBuf]) -> Result<Config> {
 
 fn combine(paths: &[PathBuf]) -> Box<dyn Read> {
     let mut readers = Vec::with_capacity(paths.len());
-
     for path in paths {
         match std::fs::File::open(path) {
             Ok(file) => readers.push(BufReader::new(file)),
@@ -58,6 +59,8 @@ fn combine(paths: &[PathBuf]) -> Box<dyn Read> {
 
 #[cfg(test)]
 mod tests {
+    use std::ptr;
+
     use testresult::TestResult;
 
     use super::*;
@@ -66,10 +69,10 @@ mod tests {
     fn test_read() -> TestResult {
         let cfg = r#"
             actions:
-              myjail:
+              - &myjail
                 response: { status: 403, body: forbidden, header: {allow: 'GET'} }
                 continue: false
-              response_without_body:
+              - &response_without_body
                 response: { status: 400 }
             rules:
               - name: get_foobar
@@ -77,30 +80,20 @@ mod tests {
                 log: off
                 tests:
                   - request.method == "GET" && request.path.matches('^/api')
-                action: myjail"#;
+                action: *myjail"#;
         let r = BufReader::new(cfg.as_bytes());
         let config: Config = serde_saphyr::from_reader(r)?;
 
-        assert!(config.actions.contains_key("myjail"));
+        //assert!(config.actions.contains_key("myjail"));
         assert_eq!(config.rules.len(), 1);
-        assert_eq!(config.rules.first().unwrap().name, "get_foobar");
-        assert!(
-            config
-                .actions
-                .get("response_without_body")
-                .and_then(|a| a.response.as_ref())
-                .map(|r| &r.body)
-                .is_some()
-        );
-        assert!(
-            config
-                .actions
-                .get("myjail")
-                .and_then(|a| a.response.as_ref())
-                .map(|r| &r.header)
-                .is_some()
-        );
 
+        let rule = config.rules.first().unwrap();
+        assert_eq!(rule.name, "get_foobar");
+        assert!(rule.action.is_some());
+
+        let action = rule.action.as_ref().unwrap();
+        assert!(!action.r#continue);
+        assert!(action.response.is_some());
         Ok(())
     }
 
@@ -145,15 +138,16 @@ mod tests {
     fn test_action_default_continue_is_false() -> TestResult {
         let cfg = r#"
             actions:
-              block:
+              - &block
                 response: { status: 403 }
             rules:
               - name: test
                 tests:
-                  - request.method == 'GET'"#;
+                  - request.method == 'GET'
+                action: *block"#;
         let config: Config = serde_saphyr::from_str(cfg)?;
-        let action = config.actions.get("block").unwrap();
-        assert!(!action.r#continue);
+        let action = config.rules.first().unwrap().action.as_ref();
+        assert!(!action.unwrap().r#continue);
         Ok(())
     }
 
@@ -175,6 +169,28 @@ mod tests {
     }
 
     #[test_log::test]
+    fn test_multiple_rules_same_action() -> TestResult {
+        let cfg = r#"
+            actions:
+              - &action1
+                response: { status: 403 }
+            rules:
+              - name: rule_one
+                tests:
+                  - request.method == 'GET'
+                action: *action1
+              - name: rule_two
+                tests:
+                  - request.method == 'POST'
+                action: *action1"#;
+        let config: Config = serde_saphyr::from_str(cfg)?;
+        let a = config.rules[0].action.as_ref().unwrap().0.as_ref();
+        let b = config.rules[1].action.as_ref().unwrap().0.as_ref();
+        assert!(ptr::addr_eq(a, b));
+        Ok(())
+    }
+
+    #[test_log::test]
     fn test_empty_actions_map() -> TestResult {
         let cfg = r#"
             rules:
@@ -182,7 +198,8 @@ mod tests {
                 tests:
                   - request.method == 'GET'"#;
         let config: Config = serde_saphyr::from_str(cfg)?;
-        assert!(config.actions.is_empty());
+        let action = config.rules.first().unwrap().action.as_ref();
+        assert!(action.is_none());
         Ok(())
     }
 

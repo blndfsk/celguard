@@ -1,9 +1,9 @@
 actions:
-  allow:
+  - &allow
     continue: true
-  forbidden:
+  - &forbidden
     response: { status: 403, body: forbidden }
-  method_not_allowed:
+  - &method_not_allowed
     response: { status: 405, header: { allow: "GET, HEAD" } }
 
 rules:
@@ -11,14 +11,14 @@ rules:
     log: warn
     tests:
       - request.method in ['GET','HEAD'] != true
-    action: method_not_allowed
+    action: *method_not_allowed
 
   - name: empty_agent
     log: warn
     tests:
       - request.header.has('user-agent') == false
       - request.header['user-agent'] == []
-    action: forbidden
+    action: *forbidden
 
   - name: whitelist
     tests:
@@ -29,8 +29,8 @@ rules:
       - request.path.startsWith('/js/')
       - request.path.startsWith('/css/')
       - request.path.startsWith('/images/')
-    action: allow
+    action: *allow
 
   - name: default
     log: warn
-    action: forbidden
+    action: *forbidden
