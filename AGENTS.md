@@ -28,5 +28,5 @@ A Traefik Wasm plugin (Rust) that evaluates incoming requests against CEL rules 
 - **Rust**: edition 2024, minimum 1.88.0
 - **Target**: `wasm32-wasip1` (WASI Preview 1)
 - **Formatting**: max line width 100 (see `.rustfmt.toml`)
-- **Error handling**: clippy denies `panic!` and `unwrap()` (see `[lints.clippy]` in `Cargo.toml`) — propagate errors via `Result`/`anyhow` instead
+- **Error handling**: clippy denies `panic!` and `unwrap()` (see `[lints.clippy]` in `Cargo.toml`) — propagate errors via `Result`/`anyhow` instead. Exception are tests.
 - **Memory**: minimize heap allocations; avoid copies/clones where possible

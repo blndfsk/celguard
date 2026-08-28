@@ -167,9 +167,9 @@ dependencies = [
 
 [[package]]
 name = "cel"
-version = "0.14.3"
+version = "0.14.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f82399e72d100a28a0cac14251a8aba16d124af2a237d8a60ab7997ba7380cc3"
+checksum = "9f93082a93da8fd78394852602ced1e2e7754ed8c29dc813fa80b01a1baf9032"
 dependencies = [
  "antlr4rust",
  "chrono",
@@ -183,7 +183,7 @@ dependencies = [
 
 [[package]]
 name = "celguard"
-version = "0.1.4"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "cel",
@@ -307,9 +307,9 @@ dependencies = [
 
 [[package]]
 name = "http-wasm-guest"
-version = "0.11.4"
+version = "0.11.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0a6cde98cb5cfab110a971c762dca3c1f3ce22de56569c42e91b49f4f285a495"
+checksum = "fe296a449c35232c59cdecc7214bdb08c7c136b7df3fa4af42eeba42e6784b57"
 dependencies = [
  "log",
 ]
@@ -789,9 +789,9 @@ checksum = "06abde3611657adf66d383f00b093d7faecc7fa57071cce2578660c9f1010821"
 
 [[package]]
 name = "uuid"
-version = "1.25.0"
+version = "1.26.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f053576934f05a761a402421fbbe3d425d9366f75f978806a037b3ca481abecc"
+checksum = "b5772d71c9be8a8a6ac2117d949c5b224c1b72241bb611d9a3012edcf8af7812"
 dependencies = [
  "js-sys",
  "wasm-bindgen",

@@ -63,7 +63,10 @@ impl<'a> Matcher<'a> {
 fn is_match(program: &Program, context: &Context) -> bool {
     match program.execute(context) {
         Ok(Value::Bool(b)) => b,
-        Ok(_) => false, //wrong type
+        Ok(val) => {
+            log::warn!("program must return bool: {:?}", val);
+            false
+        } //wrong type
         Err(e) => {
             log::error!("{}", e);
             false
@@ -144,8 +147,8 @@ mod tests {
     #[test]
     fn test_first_matching_rule_wins() -> TestResult {
         let req = Request::from_parts("/foo", "GET", "HTTP/1.1", HashMap::new());
-        let action1 = RcAnchor::from(Rc::from(Action::default()));
-        let action2 = RcAnchor::from(Rc::from(Action::default()));
+        let action1 = RcAnchor::from(Rc::from(Action { response: None, r#continue: true }));
+        let action2 = RcAnchor::from(Rc::from(Action { response: None, r#continue: false }));
         let m = Matcher::new(vec![
             Rule::from_parts(
                 "first",
@@ -259,6 +262,20 @@ mod tests {
         )]);
         let out = m.eval(&req)?;
         assert_eq!(Outcome::Match(Action::default_action()), out);
+        Ok(())
+    }
+    #[test]
+    fn test_invalid_program() -> TestResult {
+        let req = Request::from_parts("/api/v1/users", "GET", "HTTP/1.1", HashMap::new());
+        let m = Matcher::new(vec![Rule::from_parts(
+            "returns_wrong_type",
+            false,
+            log::LevelFilter::Off,
+            vec!["request.path"],
+            None,
+        )]);
+        let out = m.eval(&req)?;
+        assert_eq!(Outcome::NoMatch, out);
         Ok(())
     }
 }

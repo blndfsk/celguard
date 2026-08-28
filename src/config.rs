@@ -43,18 +43,15 @@ fn combine(paths: &[PathBuf]) -> Box<dyn Read> {
             Err(err) => log::warn!("unable to open file: {}, error: {}", path.display(), err),
         }
     }
-
-    match readers.len() {
-        0 => Box::new(io::empty()),
-        _ => {
-            let mut combined: Box<dyn Read> =
-                Box::new(readers.pop().expect("at least one element"));
-            while let Some(reader) = readers.pop() {
-                combined = Box::new(reader.chain(combined));
-            }
-            combined
-        }
+    let mut iter = readers.into_iter();
+    let Some(first) = iter.next() else {
+        return Box::new(io::empty());
+    };
+    let mut combined: Box<dyn Read> = Box::new(first);
+    for reader in iter {
+        combined = Box::new(reader.chain(combined));
     }
+    combined
 }
 
 #[cfg(test)]

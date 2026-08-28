@@ -1,16 +1,16 @@
-use std::{collections::HashMap, ptr};
+use std::collections::HashMap;
 
 use http_wasm_guest::host;
 use serde::Deserialize;
 
-#[derive(Deserialize, Default, Debug)]
+#[derive(Deserialize, Default, Debug, PartialEq)]
 pub(crate) struct Action {
     pub(crate) response: Option<Response>,
     #[serde(default)]
     pub(crate) r#continue: bool,
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, PartialEq)]
 pub(crate) struct Response {
     pub(crate) status: Option<i32>,
     #[serde(default)]
@@ -21,12 +21,6 @@ pub(crate) struct Response {
 
 /// Default action used when a rule matches without an explicit action.
 const DEFAULT_ACTION: Action = Action { response: None, r#continue: false };
-
-impl PartialEq for Action {
-    fn eq(&self, other: &Self) -> bool {
-        ptr::addr_eq(self, other)
-    }
-}
 
 impl Action {
     pub(crate) fn default_action() -> &'static Action {

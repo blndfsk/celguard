@@ -21,13 +21,17 @@ impl Opaque for Request {
 ///"GET /apache_pb.gif HTTP/1.0" curl/
 impl Display for Request {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let user_agent = self.header.get("user-agent").map_or_else(
-            || "-".to_string(),
-            |v| {
-                if v.is_empty() { "-".to_string() } else { v.join(", ") }
-            },
-        );
-        write!(f, "\"{} {} {}\" {}", self.method, self.path, self.version, user_agent)
+        write!(f, "\"{} {} {}\" ", self.method, self.path, self.version)?;
+        match self.header.get("user-agent") {
+            Some(ua) if !ua.is_empty() => {
+                let mut sep = std::iter::once("");
+                ua.iter().for_each(|elem| {
+                    write!(f, "{}{}", sep.next().unwrap_or(", "), elem).unwrap_or_default();
+                });
+            }
+            _ => write!(f, "-")?,
+        }
+        Ok(())
     }
 }
 
@@ -81,9 +85,12 @@ mod tests {
             "/foo/bar",
             "GET",
             "HTTP/1.1",
-            HashMap::from([("user-agent".to_string(), vec!["curl/8.0".to_string()])]),
+            HashMap::from([(
+                "user-agent".to_string(),
+                vec!["curl/8.0".to_string(), "test".to_string()],
+            )]),
         );
-        assert_eq!(format!("{}", req), "\"GET /foo/bar HTTP/1.1\" curl/8.0");
+        assert_eq!(format!("{}", req), "\"GET /foo/bar HTTP/1.1\" curl/8.0, test");
     }
 
     #[test]
