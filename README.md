@@ -15,30 +15,36 @@ The intended use is for small sites that want to block or log certain requests w
 
 Rules are written in YAML and use CEL expressions for matching. 
 
+### Defaults
+The default action is supplied on all rules without an action.
+```yaml
+actions:
+  - &default
+    continue: false
+    response: { status: 403, body: "", header: {} }
 
+rules:
+  - disabled: false 
+    log: off        
+    tests: []
+    action: *default
+```
 
 
 ### Rule Example
 
-
 ```yaml
-actions:
-  - &myresponse                                      # reference
-    log: off                                         # off(default), debug, info, warn, error
-    response: { status: 403, body: "", header: {} }  # default is status:403, no body, no extra header
-    continue: false                                  # true, false(default) - do no continue 
-
 rules:
   - name: useragent
-    disabled: false                                  # true, false(default)
     tests:
-      - request.header.contains('user-agent') == false
-    action: *myresponse                              # optional, if not specified the middleware chain is terminated
+      - request.header.has('user-agent') == false
+      - request.header['user-agent'] == []
 ```
+This would test if the header-map does not contain an `user-agent` or if the header value is empty.
 
 ### Request Object
 
-You can match on any part of the request:
+You can match on these parts of the request:
 
 ```yaml
 request:
@@ -51,11 +57,8 @@ request:
         accept: ["*/*"]
 ```
 
-### CEL Expression Example
-
-```c
-request.path.startsWith('/.')
-```
+## CEL Expressions
+The heavy lifting is done with the [CEL crate](https://crates.io/crates/cel) which implements the [Cel-Spec](https://github.com/cel-expr/cel-spec).
 
 You can experiment with CEL syntax at [playcel.undistro.io](https://playcel.undistro.io/?content=H4sIAAAAAAAAA1WQwW6DMAyGXyXKoUBVAt0J5T5tu%2B2AtEPpwSNugwQJc8xaadq7j5RObX38%2Fk%2FWb%2F%2FIFnupJeHXhIHVCGxVYCAOHx3bNClUkonVSjTOQkj%2FNYtgkK7BI9wl1gdO9grPXeCQ2o143HiyHoYuybLGyY00wPDmxolvJXTjxDyxihaFOnhPn0ALHJCtN1q8PNcL%2BEYKnXdavNb1e7FV2wUvXa6b4pzzg6cTkEGTj%2BTZa7GzzOP%2BpsTeM136qd630F9QVVblnTYFpByO6KLcTtQXlXoq1b0CbYtjjBu5LtaNnKPLsYM3ON8ZX%2F77B%2FWBVx16AQAA).
 

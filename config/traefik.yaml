@@ -1,0 +1,11 @@
+# the config from the .traefik.yaml
+actions:
+  - &block_empty_useragent
+    response: { status: 400 }
+rules:
+  - name: useragent
+    log: warn
+    tests:
+      - request.header.has('user-agent') == false
+      - request.header['user-agent'] == []
+    action: *block_empty_useragent

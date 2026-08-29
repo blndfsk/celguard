@@ -95,7 +95,7 @@ mod tests {
     }
 
     #[test_log::test]
-    fn test_defaults() -> TestResult {
+    fn test_rule_without_action() -> TestResult {
         let cfg = r#"
             rules:
               - name: get_foobar
@@ -105,6 +105,8 @@ mod tests {
         assert_eq!(config.rules.len(), 1);
         assert_eq!(config.rules.first().unwrap().name, "get_foobar");
         assert!(!config.rules[0].disabled);
+        assert!(config.rules[0].action.is_none());
+        assert_eq!(config.rules[0].log, log::LevelFilter::Off);
         Ok(())
     }
 
@@ -139,8 +141,6 @@ mod tests {
                 response: { status: 403 }
             rules:
               - name: test
-                tests:
-                  - request.method == 'GET'
                 action: *block"#;
         let config: Config = serde_saphyr::from_str(cfg)?;
         let action = config.rules.first().unwrap().action.as_ref();
@@ -188,19 +188,6 @@ mod tests {
     }
 
     #[test_log::test]
-    fn test_empty_actions_map() -> TestResult {
-        let cfg = r#"
-            rules:
-              - name: test
-                tests:
-                  - request.method == 'GET'"#;
-        let config: Config = serde_saphyr::from_str(cfg)?;
-        let action = config.rules.first().unwrap().action.as_ref();
-        assert!(action.is_none());
-        Ok(())
-    }
-
-    #[test_log::test]
     fn test_read_from_empty_paths() {
         let result = read_from(&[]);
         assert!(result.is_err());
@@ -237,18 +224,6 @@ mod tests {
                   - request.method == 'GET'"#;
         let config: Config = serde_saphyr::from_str(cfg)?;
         assert_eq!(config.rules[0].log, log::LevelFilter::Info);
-        Ok(())
-    }
-
-    #[test_log::test]
-    fn test_default_log_level_is_off() -> TestResult {
-        let cfg = r#"
-            rules:
-              - name: test
-                tests:
-                  - request.method == 'GET'"#;
-        let config: Config = serde_saphyr::from_str(cfg)?;
-        assert_eq!(config.rules[0].log, log::LevelFilter::Off);
         Ok(())
     }
 }

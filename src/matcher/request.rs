@@ -1,11 +1,11 @@
 use std::{collections::HashMap, fmt::Display};
 
-use anyhow::{Error, Result};
+use anyhow::Error;
 use cel::objects::Opaque;
 use http_wasm_guest::host;
 use serde::Serialize;
 
-#[derive(Eq, PartialEq, Serialize, Debug)]
+#[derive(Eq, Default, PartialEq, Serialize, Debug)]
 pub(super) struct Request {
     path: String,
     method: String,
@@ -36,9 +36,6 @@ impl Display for Request {
 }
 
 impl Request {
-    pub(super) fn try_from_host(request: &host::Request) -> Result<Self> {
-        Self::try_from(request)
-    }
     #[cfg(test)]
     pub(super) fn from_parts(
         path: &str,
@@ -81,38 +78,43 @@ mod tests {
 
     #[test]
     fn test_display_with_user_agent() {
-        let req = Request::from_parts(
-            "/foo/bar",
-            "GET",
-            "HTTP/1.1",
-            HashMap::from([(
+        let req = Request {
+            path: "/foo/bar".to_string(),
+            method: "GET".to_string(),
+            version: "HTTP/1.1".to_string(),
+            header: HashMap::from([(
                 "user-agent".to_string(),
                 vec!["curl/8.0".to_string(), "test".to_string()],
             )]),
-        );
+        };
         assert_eq!(format!("{}", req), "\"GET /foo/bar HTTP/1.1\" curl/8.0, test");
     }
 
     #[test]
     fn test_display_without_user_agent() {
-        let req = Request::from_parts("/foo/bar", "POST", "HTTP/2.0", HashMap::new());
+        let req = Request {
+            path: "/foo/bar".to_string(),
+            method: "POST".to_string(),
+            version: "HTTP/2.0".to_string(),
+            ..Request::default()
+        };
         assert_eq!(format!("{}", req), "\"POST /foo/bar HTTP/2.0\" -");
     }
 
     #[test]
     fn test_display_with_empty_user_agent() {
-        let req = Request::from_parts(
-            "/",
-            "GET",
-            "HTTP/1.0",
-            HashMap::from([("user-agent".to_string(), vec![])]),
-        );
+        let req = Request {
+            path: "/".to_string(),
+            method: "GET".to_string(),
+            version: "HTTP/1.0".to_string(),
+            header: HashMap::from([("user-agent".to_string(), vec![])]),
+        };
         assert_eq!(format!("{}", req), "\"GET / HTTP/1.0\" -");
     }
 
     #[test]
     fn test_runtime_type_name() {
-        let req = Request::from_parts("/", "GET", "HTTP/1.1", HashMap::new());
+        let req = Request { ..Default::default() };
         assert_eq!(req.runtime_type_name(), "request");
     }
 }

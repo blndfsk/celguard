@@ -3,6 +3,7 @@ set -eu -o pipefail
 
 plugin="celguard"
 pod=$(podman pod create -p 8080:8080)
+config="${1:-whitelist}".yaml
 
 function cleanup()
 {
@@ -17,7 +18,7 @@ cargo build --release --target wasm32-wasip1
 TRAEFIK_ROOT=/opt/traefik
 ROOT_DIR=$TRAEFIK_ROOT/plugins-local/src/$plugin
 
-container=$(buildah from traefik:v3.6)
+container=$(buildah from traefik:v3.7)
 buildah copy $container target/wasm32-wasip1/release/$plugin.wasm $ROOT_DIR/plugin.wasm
 buildah copy $container .traefik.yml $ROOT_DIR/.traefik.yml
 buildah config --workingdir $TRAEFIK_ROOT $container
@@ -34,7 +35,7 @@ podman run -d --pod $pod --replace --name whoami \
     --label "traefik.http.routers.whoami.service=whoami" \
     --label 'traefik.http.routers.echo.rule=Host(`echo.localhost`)' \
     --label "traefik.http.routers.echo.service=whoami" \
-    --label "traefik.http.middlewares.$plugin.plugin.$plugin.paths[0]=$ROOT_DIR/config/rules.yaml" \
+    --label "traefik.http.middlewares.$plugin.plugin.$plugin.paths[0]=$ROOT_DIR/config/$config" \
     --label "traefik.http.services.whoami.loadbalancer.server.url=http://localhost:8081" \
     traefik/whoami -port 8081
 

@@ -1,8 +1,8 @@
 actions:
   - &allow
     continue: true
-  - &forbidden
-    response: { status: 403, body: forbidden }
+  - &bad_request
+    response: { status: 400 }
   - &method_not_allowed
     response: { status: 405, header: { allow: "GET, HEAD" } }
 
@@ -18,7 +18,7 @@ rules:
     tests:
       - request.header.has('user-agent') == false
       - request.header['user-agent'] == []
-    action: *forbidden
+    action: *bad_request
 
   - name: whitelist
     tests:
@@ -33,4 +33,3 @@ rules:
 
   - name: default
     log: warn
-    action: *forbidden

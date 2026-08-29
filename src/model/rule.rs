@@ -20,21 +20,14 @@ pub(crate) struct Rule {
     pub(crate) action: Option<RcAnchor<Action>>,
 }
 
-impl Rule {
-    #[cfg(test)]
-    pub(crate) fn from_parts(
-        name: &str,
-        disabled: bool,
-        log: LevelFilter,
-        tests: Vec<&str>,
-        action: Option<RcAnchor<Action>>,
-    ) -> Rule {
-        Rule {
-            name: name.to_string(),
-            disabled,
-            log,
-            tests: tests.iter().flat_map(|s| Program::compile(s)).collect::<Vec<_>>(),
-            action,
+impl Default for Rule {
+    fn default() -> Self {
+        Self {
+            name: Default::default(),
+            disabled: false,
+            log: LevelFilter::Off,
+            tests: Default::default(),
+            action: Default::default(),
         }
     }
 }
@@ -55,7 +48,7 @@ where
         where
             A: serde::de::SeqAccess<'de>,
         {
-            let mut programs = Vec::with_capacity(seq.size_hint().unwrap_or(32));
+            let mut programs = Vec::with_capacity(seq.size_hint().unwrap_or_default());
             while let Some(s) = seq.next_element::<Cow<str>>()? {
                 programs.push(Program::compile(&s).map_err(serde::de::Error::custom)?);
             }

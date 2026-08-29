@@ -20,7 +20,10 @@ pub(crate) struct Response {
 }
 
 /// Default action used when a rule matches without an explicit action.
-const DEFAULT_ACTION: Action = Action { response: None, r#continue: false };
+const DEFAULT_ACTION: Action = Action {
+    response: Some(Response { status: None, body: None, header: None }),
+    r#continue: false,
+};
 
 impl Action {
     pub(crate) fn default_action() -> &'static Action {
@@ -29,10 +32,11 @@ impl Action {
 
     // order matters
     pub(crate) fn execute(&self, response: &host::Response) -> (bool, i32) {
-        let resp = self.response.as_ref();
-        write_header(response, resp.and_then(|r| r.header.as_ref()));
-        write_status(response, resp.and_then(|r| r.status.as_ref()));
-        write_body(response, resp.and_then(|r| r.body.as_ref()));
+        if let Some(resp) = self.response.as_ref() {
+            write_header(response, resp.header.as_ref());
+            write_status(response, resp.status.as_ref());
+            write_body(response, resp.body.as_ref());
+        }
         (self.r#continue, 0)
     }
 }
