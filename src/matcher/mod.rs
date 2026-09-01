@@ -78,7 +78,7 @@ mod tests {
     use super::*;
 
     use serde_saphyr::RcAnchor;
-    use std::{collections::HashMap, ptr, rc::Rc};
+    use std::{ptr, rc::Rc};
     use testresult::TestResult;
 
     #[test]
@@ -90,7 +90,7 @@ mod tests {
 
     #[test]
     fn test_disabled_rule_is_skipped() -> TestResult {
-        let req = Request::from_parts("/foo", "GET", "HTTP/1.1", HashMap::new());
+        let req = Request::get_request();
         let m = Matcher::new(vec![Rule { disabled: true, ..Rule::default() }]);
         let out = m.eval(&req)?;
         assert_eq!(Outcome::NoMatch, out);
@@ -99,7 +99,7 @@ mod tests {
 
     #[test]
     fn test_first_matching_rule_wins() -> TestResult {
-        let req = Request::from_parts("/foo", "GET", "HTTP/1.1", HashMap::new());
+        let req = Request::get_request();
         let action1 = RcAnchor::from(Rc::from(Action { response: None, r#continue: false }));
         let action2 = RcAnchor::from(Rc::from(Action { response: None, r#continue: true }));
         let m = Matcher::new(vec![
@@ -121,7 +121,7 @@ mod tests {
 
     #[test]
     fn test_no_rules_returns_no_match() -> TestResult {
-        let req = Request::from_parts("/foo", "GET", "HTTP/1.1", HashMap::new());
+        let req = Request::get_request();
         let m = Matcher::new(vec![]);
         let out = m.eval(&req)?;
         assert_eq!(Outcome::NoMatch, out);
@@ -130,7 +130,7 @@ mod tests {
 
     #[test]
     fn test_match_returns_action() -> TestResult {
-        let req = Request::from_parts("/foo", "GET", "HTTP/1.1", HashMap::new());
+        let req = Request::get_request();
         let action = RcAnchor::from(Rc::from(Action::default()));
         let m = Matcher::new(vec![Rule {
             tests: vec![Program::compile("request.method == 'GET'")?],
@@ -145,9 +145,9 @@ mod tests {
 
     #[test]
     fn test_non_matching_rule() -> TestResult {
-        let req = Request::from_parts("/foo", "GET", "HTTP/1.1", HashMap::new());
+        let req = Request::post_request();
         let m = Matcher::new(vec![Rule {
-            tests: vec![Program::compile("request.method == 'POST'")?],
+            tests: vec![Program::compile("request.method == 'GET'")?],
             ..Rule::default()
         }]);
         let out = m.eval(&req)?;
@@ -157,7 +157,7 @@ mod tests {
 
     #[test]
     fn test_matching_rule_without_action() -> TestResult {
-        let req = Request::from_parts("/foo", "GET", "HTTP/1.1", HashMap::new());
+        let req = Request::get_request();
         let m = Matcher::new(vec![Rule {
             tests: vec![Program::compile("request.method == 'GET'")?],
             ..Rule::default()
@@ -172,7 +172,7 @@ mod tests {
 
     #[test]
     fn test_rule_without_tests_and_action() -> TestResult {
-        let req = Request::from_parts("/foo", "GET", "HTTP/1.1", HashMap::new());
+        let req = Request::get_request();
         let m = Matcher::new(vec![Rule { ..Default::default() }]);
         let out = m.eval(&req)?;
         let Outcome::Match(action) = out else { panic!() };
