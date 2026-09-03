@@ -38,7 +38,7 @@ impl<'a> Matcher<'a> {
 
     fn eval(&self, request: &Request) -> Result<Outcome<'_>> {
         let mut context = self.context.new_inner_scope();
-        context.add_variable("request", &request)?;
+        context.add_variable_from_value("request", request.value());
 
         for rule in &self.rules {
             if !rule.disabled
@@ -179,6 +179,20 @@ mod tests {
         assert_eq!(Action::default_action(), action);
         assert!(ptr::addr_eq(Action::default_action(), action));
         assert!(action.response.is_some());
+        Ok(())
+    }
+
+    #[test]
+    fn test_header_rule_matches() -> TestResult {
+        let req = Request::user_agent_request();
+        let action = RcAnchor::from(Rc::from(Action::default()));
+        let m = Matcher::new(vec![Rule {
+            tests: vec![Program::compile("request.header.has('user-agent')")?],
+            action: Some(RcAnchor::from(action.clone())),
+            ..Rule::default()
+        }]);
+        let out = m.eval(&req)?;
+        assert_eq!(Outcome::Match(&action), out);
         Ok(())
     }
 

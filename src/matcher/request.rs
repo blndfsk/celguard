@@ -1,31 +1,25 @@
 #[cfg(test)]
 use std::sync::OnceLock;
-use std::{collections::HashMap, fmt::Display, net::IpAddr, str::FromStr};
+use std::{collections::HashMap, fmt::Display, net::IpAddr, str::FromStr, sync::Arc};
 
 use anyhow::{Error, Result};
-use cel::objects::Opaque;
+use cel::objects::{Key, Map, Value};
 use http_wasm_guest::host;
-use serde::Serialize;
 
-#[derive(Eq, PartialEq, Serialize, Debug)]
+#[derive(Eq, PartialEq, Debug)]
 pub(super) struct Request {
-    path: String,
-    method: String,
-    version: String,
-    header: HashMap<String, Vec<String>>,
-    source_addr: String,
-}
-impl Opaque for Request {
-    fn runtime_type_name(&self) -> &str {
-        "request"
-    }
+    path: Arc<String>,
+    method: Arc<String>,
+    version: Arc<String>,
+    header: HashMap<Arc<String>, Vec<Arc<String>>>,
+    source_addr: Arc<String>,
 }
 
 ///"GET /apache_pb.gif HTTP/1.0" curl/
 impl Display for Request {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{} \"{} {} {}\" ", self.source_addr, self.method, self.path, self.version)?;
-        match self.header.get("user-agent") {
+        match self.header.iter().find_map(|(k, v)| (k.as_str() == "user-agent").then_some(v)) {
             Some(ua) if !ua.is_empty() => {
                 let mut sep = std::iter::once("");
                 ua.iter().for_each(|elem| {
@@ -41,27 +35,59 @@ impl Display for Request {
 impl From<&host::Request> for Request {
     fn from(request: &host::Request) -> Self {
         Request {
-            path: to_string(&request.uri()),
-            method: to_string(&request.method()),
-            version: to_string(&request.version()),
+            path: to_string(&request.uri()).into(),
+            method: to_string(&request.method()).into(),
+            version: to_string(&request.version()).into(),
             source_addr: parse_socket_addr(&request.source_addr())
-                .map(|a| a.to_string())
+                .map(|a| a.to_string().into())
                 .unwrap_or_default(),
             header: map_header(&request.header),
         }
     }
 }
 
-fn map_header(header: &host::Header) -> HashMap<String, Vec<String>> {
+fn map_header(header: &host::Header) -> HashMap<Arc<String>, Vec<Arc<String>>> {
     header
         .names_iter()
         .map(|name| {
-            let val = header.values_iter(&name).map(|i| to_string(&i)).collect::<Vec<_>>();
+            let val = header.values_iter(&name).map(|i| to_string(&i).into()).collect::<Vec<_>>();
             let mut key = to_string(&name);
             key.make_ascii_lowercase();
-            (key, val)
+            (key.into(), val)
         })
         .collect()
+}
+
+impl Request {
+    /// Builds the CEL value for this request. Only `Arc` reference counts are
+    /// bumped — no string data is copied.
+    pub(super) fn value(&self) -> Value {
+        let header = self
+            .header
+            .iter()
+            .map(|(k, v)| {
+                (
+                    Key::String(k.clone()),
+                    Value::List(Arc::new(v.iter().cloned().map(Value::String).collect())),
+                )
+            })
+            .collect();
+        let field = |name: &str, value: &Arc<String>| {
+            (Key::String(String::from(name).into()), Value::String(value.clone()))
+        };
+        Value::Map(Map {
+            map: Arc::new(HashMap::from([
+                field("path", &self.path),
+                field("method", &self.method),
+                field("version", &self.version),
+                field("source_addr", &self.source_addr),
+                (
+                    Key::String(String::from("header").into()),
+                    Value::Map(Map { map: Arc::new(header) }),
+                ),
+            ])),
+        })
+    }
 }
 fn to_string(input: &[u8]) -> String {
     String::from_utf8_lossy(input).into_owned()
@@ -99,23 +125,36 @@ impl Request {
     pub(super) fn get_request() -> &'static Request {
         static GET_REQUEST: OnceLock<Request> = OnceLock::new();
         GET_REQUEST.get_or_init(|| Request {
-            path: "/".to_string(),
-            method: "GET".to_string(),
-            version: "HTTP/1.1".to_string(),
+            path: "/".to_string().into(),
+            method: "GET".to_string().into(),
+            version: "HTTP/1.1".to_string().into(),
             header: HashMap::new(),
-            source_addr: String::new(),
+            source_addr: String::new().into(),
         })
     }
 
     pub(super) fn post_request() -> &'static Request {
         static POST_REQUEST: OnceLock<Request> = OnceLock::new();
         POST_REQUEST.get_or_init(|| Request {
-            path: "/".to_string(),
-            method: "POST".to_string(),
-            version: "HTTP/1.1".to_string(),
+            path: "/".to_string().into(),
+            method: "POST".to_string().into(),
+            version: "HTTP/1.1".to_string().into(),
             header: HashMap::new(),
-            source_addr: String::new(),
+            source_addr: String::new().into(),
         })
+    }
+
+    pub(super) fn user_agent_request() -> Request {
+        Request {
+            path: "/".to_string().into(),
+            method: "GET".to_string().into(),
+            version: "HTTP/1.1".to_string().into(),
+            header: HashMap::from([(
+                "user-agent".to_string().into(),
+                vec!["curl/8.0".to_string().into()],
+            )]),
+            source_addr: "127.0.0.1".to_string().into(),
+        }
     }
 }
 
@@ -129,24 +168,26 @@ mod tests {
     #[test]
     fn test_request() {
         let req = Request {
-            path: "/foo/bar".to_string(),
-            method: "GET".to_string(),
-            version: "HTTP/1.1".to_string(),
-            header: HashMap::from([("user-agent".to_string(), vec!["curl/8.0".to_string()])]),
-            source_addr: "127.0.0.1".to_string(),
+            path: "/foo/bar".to_string().into(),
+            method: "GET".to_string().into(),
+            version: "HTTP/1.1".to_string().into(),
+            header: HashMap::from([(
+                "user-agent".to_string().into(),
+                vec!["curl/8.0".to_string().into()],
+            )]),
+            source_addr: "127.0.0.1".to_string().into(),
         };
         assert_eq!(format!("{}", req), "127.0.0.1 \"GET /foo/bar HTTP/1.1\" \"curl/8.0\"");
-        assert_eq!(req.runtime_type_name(), "request");
     }
 
     #[test]
     fn test_display_without_user_agent() {
         let req = Request {
-            path: "/foo/bar".to_string(),
-            method: "POST".to_string(),
-            version: "HTTP/2.0".to_string(),
+            path: "/foo/bar".to_string().into(),
+            method: "POST".to_string().into(),
+            version: "HTTP/2.0".to_string().into(),
             header: HashMap::new(),
-            source_addr: "127.0.0.1".to_string(),
+            source_addr: "127.0.0.1".to_string().into(),
         };
         assert_eq!(format!("{}", req), "127.0.0.1 \"POST /foo/bar HTTP/2.0\" -");
     }
@@ -154,11 +195,11 @@ mod tests {
     #[test]
     fn test_display_with_empty_user_agent() {
         let req = Request {
-            path: "/".to_string(),
-            method: "GET".to_string(),
-            version: "HTTP/1.0".to_string(),
-            header: HashMap::from([("user-agent".to_string(), vec![])]),
-            source_addr: "127.0.0.1:123".to_string(),
+            path: "/".to_string().into(),
+            method: "GET".to_string().into(),
+            version: "HTTP/1.0".to_string().into(),
+            header: HashMap::from([("user-agent".to_string().into(), vec![])]),
+            source_addr: "127.0.0.1:123".to_string().into(),
         };
         assert_eq!(format!("{}", req), "127.0.0.1:123 \"GET / HTTP/1.0\" -");
     }
