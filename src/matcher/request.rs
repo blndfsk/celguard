@@ -7,7 +7,7 @@ use cel::objects::Opaque;
 use http_wasm_guest::host;
 use serde::Serialize;
 
-#[derive(Eq, Default, PartialEq, Serialize, Debug)]
+#[derive(Eq, PartialEq, Serialize, Debug)]
 pub(super) struct Request {
     path: String,
     method: String,
@@ -24,17 +24,16 @@ impl Opaque for Request {
 ///"GET /apache_pb.gif HTTP/1.0" curl/
 impl Display for Request {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "\"{} {} {}\" ", self.method, self.path, self.version)?;
+        write!(f, "{} \"{} {} {}\" ", self.source_addr, self.method, self.path, self.version)?;
         match self.header.get("user-agent") {
             Some(ua) if !ua.is_empty() => {
                 let mut sep = std::iter::once("");
                 ua.iter().for_each(|elem| {
-                    write!(f, "{}{}", sep.next().unwrap_or(", "), elem).unwrap_or_default();
+                    write!(f, "{}\"{}\"", sep.next().unwrap_or(", "), elem).unwrap_or_default();
                 });
             }
             _ => write!(f, "-")?,
         }
-        write!(f, " {}", self.source_addr)?;
         Ok(())
     }
 }
@@ -44,9 +43,9 @@ impl TryFrom<&host::Request> for Request {
 
     fn try_from(request: &host::Request) -> std::result::Result<Self, Self::Error> {
         Ok(Request {
-            path: request.uri().into(),
-            method: request.method().into(),
-            version: request.version().into(),
+            path: to_string(&request.uri()),
+            method: to_string(&request.method()),
+            version: to_string(&request.version()),
             source_addr: parse_socket_addr(&request.source_addr())?.to_string(),
             header: map_header(&request.header),
         })
@@ -57,12 +56,15 @@ fn map_header(header: &host::Header) -> HashMap<String, Vec<String>> {
     header
         .names_iter()
         .map(|name| {
-            let val = header.values_iter(&name).map(|i| i.into()).collect::<Vec<_>>();
-            let mut key: String = name.into();
+            let val = header.values_iter(&name).map(|i| to_string(&i)).collect::<Vec<_>>();
+            let mut key = to_string(&name);
             key.make_ascii_lowercase();
             (key, val)
         })
         .collect()
+}
+fn to_string(input: &[u8]) -> String {
+    String::from_utf8_lossy(input).into_owned()
 }
 /// Parses a socket address from the request source address.
 /// valid formats: `ipv4:port`, `[ipv6]:port`, `[ipv6%zone]:port`, `[ipv6]`
@@ -125,7 +127,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_display_with_user_agent() {
+    fn test_request() {
         let req = Request {
             path: "/foo/bar".to_string(),
             method: "GET".to_string(),
@@ -133,7 +135,8 @@ mod tests {
             header: HashMap::from([("user-agent".to_string(), vec!["curl/8.0".to_string()])]),
             source_addr: "127.0.0.1".to_string(),
         };
-        assert_eq!(format!("{}", req), "\"GET /foo/bar HTTP/1.1\" curl/8.0 127.0.0.1");
+        assert_eq!(format!("{}", req), "127.0.0.1 \"GET /foo/bar HTTP/1.1\" \"curl/8.0\"");
+        assert_eq!(req.runtime_type_name(), "request");
     }
 
     #[test]
@@ -142,9 +145,10 @@ mod tests {
             path: "/foo/bar".to_string(),
             method: "POST".to_string(),
             version: "HTTP/2.0".to_string(),
-            ..Request::default()
+            header: HashMap::new(),
+            source_addr: "127.0.0.1".to_string(),
         };
-        assert_eq!(format!("{}", req), "\"POST /foo/bar HTTP/2.0\" - ");
+        assert_eq!(format!("{}", req), "127.0.0.1 \"POST /foo/bar HTTP/2.0\" -");
     }
 
     #[test]
@@ -156,13 +160,7 @@ mod tests {
             header: HashMap::from([("user-agent".to_string(), vec![])]),
             source_addr: "127.0.0.1:123".to_string(),
         };
-        assert_eq!(format!("{}", req), "\"GET / HTTP/1.0\" - 127.0.0.1:123");
-    }
-
-    #[test]
-    fn test_runtime_type_name() {
-        let req = Request { ..Default::default() };
-        assert_eq!(req.runtime_type_name(), "request");
+        assert_eq!(format!("{}", req), "127.0.0.1:123 \"GET / HTTP/1.0\" -");
     }
 
     #[test]

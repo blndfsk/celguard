@@ -4,20 +4,20 @@ actions:
   - &bad_request
     response: { status: 400 }
   - &method_not_allowed
-    response: { status: 405, header: { allow: "GET, HEAD" } }
+    response: { status: 405, header: { allow: "GET, HEAD, OPTIONS" } }
 
 rules:
   - name: method
     log: warn
     tests:
-      - request.method in ['GET','HEAD'] != true
+      - request.method in ['GET','HEAD','OPTIONS'] != true
     action: *method_not_allowed
 
   - name: empty_agent
     log: warn
     tests:
       - request.header.has('user-agent') == false
-      - request.header['user-agent'] == []
+      - request.header['user-agent'].all(h, h.trim() == '')
     action: *bad_request
 
   - name: whitelist

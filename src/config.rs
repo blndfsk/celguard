@@ -16,6 +16,7 @@ pub(crate) struct Config {
 
 #[derive(Debug, Deserialize)]
 struct HostConfig {
+    //TODO: Enum with variants for different sources
     #[serde(default)]
     paths: Vec<PathBuf>,
     config: Option<Config>,

@@ -2,20 +2,23 @@
 name = "celguard"
 version = "0.2.1"
 edition = "2024"
-rust-version = "1.88.0"
+rust-version = "1.89.0"
 
 [dependencies]
-http-wasm-guest = "0.11"
+http-wasm-guest = "1.0"
 #http-wasm-guest = { path = "../http-wasm-guest" }
 serde = { version = "1.0", default-features = false, features = ["derive"]}
 serde-saphyr =  { version = "1", default-features = false, features = ["deserialize"] }
-log = "0.4"
 cel = "0.14"
 anyhow = "1.0"
+log = "0.4"
 
 [dev-dependencies]
 test-log = "0.2"
 testresult = "0.4"
+
+[lints.rust]
+unsafe_code = "deny"
 
 [lints.clippy]
 panic = "deny"

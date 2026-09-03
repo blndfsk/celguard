@@ -2,10 +2,16 @@
 actions:
   - &block_empty_useragent
     response: { status: 400 }
+
 rules:
   - name: useragent
     log: warn
     tests:
       - request.header.has('user-agent') == false
-      - request.header['user-agent'] == []
+      - request.header['user-agent'].all(h, h.trim() == '')
     action: *block_empty_useragent
+
+  - name: default
+    log: info
+    action:
+      continue: true
