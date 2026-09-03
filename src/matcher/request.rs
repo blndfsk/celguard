@@ -38,17 +38,17 @@ impl Display for Request {
     }
 }
 
-impl TryFrom<&host::Request> for Request {
-    type Error = Error;
-
-    fn try_from(request: &host::Request) -> std::result::Result<Self, Self::Error> {
-        Ok(Request {
+impl From<&host::Request> for Request {
+    fn from(request: &host::Request) -> Self {
+        Request {
             path: to_string(&request.uri()),
             method: to_string(&request.method()),
             version: to_string(&request.version()),
-            source_addr: parse_socket_addr(&request.source_addr())?.to_string(),
+            source_addr: parse_socket_addr(&request.source_addr())
+                .map(|a| a.to_string())
+                .unwrap_or_default(),
             header: map_header(&request.header),
-        })
+        }
     }
 }
 

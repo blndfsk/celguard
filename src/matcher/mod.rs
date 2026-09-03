@@ -32,7 +32,7 @@ impl<'a> Matcher<'a> {
     }
 
     pub(crate) fn evaluate(&self, request: &host::Request) -> Result<Outcome<'_>> {
-        let request = Request::try_from(request)?;
+        let request = Request::from(request);
         self.eval(&request)
     }
 
