@@ -8,7 +8,7 @@ use http_wasm_guest::host;
 use log::log;
 use std::sync::Arc;
 
-mod function;
+mod functions;
 mod request;
 
 pub(crate) struct Matcher<'a> {
@@ -25,10 +25,10 @@ pub(crate) enum Outcome<'a> {
 impl<'a> Matcher<'a> {
     pub(crate) fn new(config: Config) -> Self {
         let mut context = cel::Context::default();
+        context.add_function("contains", cel::functions::contains);
+        context.add_function("get_first", functions::get_first);
         context.add_function("to_lower", |This(s): This<Arc<String>>| s.to_lowercase());
         context.add_function("trim", |This(s): This<Arc<String>>| s.trim().to_string());
-        context.add_function("get", function::get);
-        context.add_function("has", function::has);
         Matcher { context, config }
     }
 
@@ -98,7 +98,7 @@ mod tests {
     use testresult::TestResult;
 
     #[test]
-    fn test_to_lower() {
+    fn test_function_to_lower() {
         let matcher = Matcher::new(Config::default());
         let program = Program::compile("to_lower('HeLLo') == 'hello'").unwrap();
         assert!(is_match(&program, &matcher.context));
@@ -222,7 +222,7 @@ mod tests {
         let action = RcAnchor::from(Rc::from(Action::default()));
         let m = Matcher::new(Config {
             rules: vec![Rule {
-                tests: vec![Program::compile("request.header.has('user-agent')")?],
+                tests: vec![Program::compile("request.header.contains('user-agent')")?],
                 action: Some(RcAnchor::from(action.clone())),
                 ..Rule::default()
             }],
@@ -238,7 +238,7 @@ mod tests {
 
         let m = Matcher::new(Config {
             rules: vec![Rule { tests: vec![], action: None, ..Rule::default() }],
-            source_ip: Some(Program::compile("request.header.get('x-real-ip')")?),
+            source_ip: Some(Program::compile("request.header['x-real-ip'].get_first()")?),
         });
         m.set_real_ip(&mut req);
         assert_eq!(req.source_ip, "1.1.1.1".to_string().into());

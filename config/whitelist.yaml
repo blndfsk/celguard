@@ -1,4 +1,4 @@
-source_ip: request.header.get('x-real-ip')
+source_ip: request.header['x-real-ip'].get_first()
 
 actions:
   - &allow
@@ -18,7 +18,7 @@ rules:
   - name: empty_agent
     log: warn
     tests:
-      - request.header.has('user-agent') == false
+      - request.header.contains('user-agent') == false
       - request.header['user-agent'].all(h, h.trim() == '')
     action: *bad_request
 
