@@ -3,6 +3,10 @@ use log::LevelFilter;
 use serde::de::Deserializer;
 use std::{borrow::Cow, str::FromStr};
 
+fn compile<E: serde::de::Error>(expr: &str) -> Result<Program, E> {
+    Program::compile(expr).map_err(serde::de::Error::custom)
+}
+
 pub(super) fn deserialize_vec_program<'de, D>(deserializer: D) -> Result<Vec<Program>, D::Error>
 where
     D: Deserializer<'de>,
@@ -21,7 +25,7 @@ where
         {
             let mut programs = Vec::with_capacity(seq.size_hint().unwrap_or_default());
             while let Some(s) = seq.next_element::<Cow<str>>()? {
-                programs.push(Program::compile(&s).map_err(serde::de::Error::custom)?);
+                programs.push(compile(&s)?);
             }
             Ok(programs)
         }
@@ -46,14 +50,7 @@ where
         where
             E: serde::de::Error,
         {
-            Program::compile(v).map_err(serde::de::Error::custom)
-        }
-
-        fn visit_borrowed_str<E>(self, v: &'de str) -> Result<Self::Value, E>
-        where
-            E: serde::de::Error,
-        {
-            Program::compile(v).map_err(serde::de::Error::custom)
+            compile(v)
         }
     }
     deserializer.deserialize_str(ProgramVisitor).map(Some)
