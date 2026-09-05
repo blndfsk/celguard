@@ -82,7 +82,7 @@ mod tests {
 
     use super::*;
 
-    #[test_log::test]
+    #[test]
     fn test_read() -> TestResult {
         let cfg = r#"
             source_ip: request.source_ip
@@ -115,7 +115,7 @@ mod tests {
         Ok(())
     }
 
-    #[test_log::test]
+    #[test]
     fn test_rule_without_action() -> TestResult {
         let cfg = r#"
             rules:
@@ -131,7 +131,7 @@ mod tests {
         Ok(())
     }
 
-    #[test_log::test]
+    #[test]
     fn test_invalid_cel_expression() {
         let cfg = r#"
             rules:
@@ -142,7 +142,7 @@ mod tests {
         assert!(result.is_err());
     }
 
-    #[test_log::test]
+    #[test]
     fn test_unknown_field_rejected() {
         let cfg = r#"
             rules:
@@ -154,7 +154,7 @@ mod tests {
         assert!(result.is_err());
     }
 
-    #[test_log::test]
+    #[test]
     fn test_action_default_continue_is_false() -> TestResult {
         let cfg = r#"
             actions:
@@ -169,7 +169,7 @@ mod tests {
         Ok(())
     }
 
-    #[test_log::test]
+    #[test]
     fn test_multiple_rules() -> TestResult {
         let cfg = r#"
             rules:
@@ -186,7 +186,7 @@ mod tests {
         Ok(())
     }
 
-    #[test_log::test]
+    #[test]
     fn test_multiple_rules_same_action() -> TestResult {
         let cfg = r#"
             actions:
@@ -208,21 +208,21 @@ mod tests {
         Ok(())
     }
 
-    #[test_log::test]
+    #[test]
     fn test_read_from_empty_paths() {
         let result = read_from(&[]);
         assert!(result.is_err());
         assert_eq!(result.unwrap_err().to_string(), "no config paths provided");
     }
 
-    #[test_log::test]
+    #[test]
     fn test_read_from_nonexistent_file() {
         let p = PathBuf::from("nonexistent.yml");
         let result = read_from(&[p]);
         assert!(result.is_err());
     }
 
-    #[test_log::test]
+    #[test]
     fn test_disabled_rule_parsing() -> TestResult {
         let cfg = r#"
             rules:
@@ -235,7 +235,7 @@ mod tests {
         Ok(())
     }
 
-    #[test_log::test]
+    #[test]
     fn test_rule_with_log_level() -> TestResult {
         let cfg = r#"
             rules:

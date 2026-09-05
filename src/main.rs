@@ -68,6 +68,6 @@ fn main() {
             let plugin = Plugin { matcher: Matcher::new(config) };
             register(plugin);
         }
-        Err(err) => log::error!(target: "celguard", "Config: {}", err),
+        Err(err) => log::error!(target: "celguard", "Config {}", err),
     }
 }
