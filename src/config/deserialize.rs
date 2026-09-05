@@ -1,38 +1,9 @@
-use crate::model::Action;
-
 use cel::Program;
 use log::LevelFilter;
-use serde::{Deserialize, Deserializer};
-use serde_saphyr::RcAnchor;
-use std::borrow::Cow;
-use std::str::FromStr;
+use serde::de::Deserializer;
+use std::{borrow::Cow, str::FromStr};
 
-#[derive(Deserialize, Debug)]
-#[serde(deny_unknown_fields)]
-pub(crate) struct Rule {
-    pub(crate) name: String,
-    #[serde(default)]
-    pub(crate) disabled: bool,
-    #[serde(deserialize_with = "deserialize_level", default = "default_level")]
-    pub(crate) log: LevelFilter,
-    #[serde(default, deserialize_with = "deserialize_program")]
-    pub(crate) tests: Vec<Program>,
-    pub(crate) action: Option<RcAnchor<Action>>,
-}
-
-impl Default for Rule {
-    fn default() -> Self {
-        Self {
-            name: Default::default(),
-            disabled: false,
-            log: LevelFilter::Off,
-            tests: Default::default(),
-            action: Default::default(),
-        }
-    }
-}
-
-pub(super) fn deserialize_program<'de, D>(deserializer: D) -> Result<Vec<Program>, D::Error>
+pub(super) fn deserialize_vec_program<'de, D>(deserializer: D) -> Result<Vec<Program>, D::Error>
 where
     D: Deserializer<'de>,
 {
@@ -57,6 +28,35 @@ where
     }
 
     deserializer.deserialize_seq(ProgramVisitor)
+}
+
+pub(super) fn deserialize_opt_program<'de, D>(deserializer: D) -> Result<Option<Program>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    struct ProgramVisitor;
+    impl<'de> serde::de::Visitor<'de> for ProgramVisitor {
+        type Value = Program;
+
+        fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+            write!(formatter, "a CEL expression string")
+        }
+
+        fn visit_str<E>(self, v: &str) -> Result<Self::Value, E>
+        where
+            E: serde::de::Error,
+        {
+            Program::compile(v).map_err(serde::de::Error::custom)
+        }
+
+        fn visit_borrowed_str<E>(self, v: &'de str) -> Result<Self::Value, E>
+        where
+            E: serde::de::Error,
+        {
+            Program::compile(v).map_err(serde::de::Error::custom)
+        }
+    }
+    deserializer.deserialize_str(ProgramVisitor).map(Some)
 }
 
 pub(super) fn deserialize_level<'de, D>(d: D) -> Result<LevelFilter, D::Error>

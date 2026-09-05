@@ -1,5 +1,3 @@
-#[cfg(test)]
-use std::sync::OnceLock;
 use std::{collections::HashMap, fmt::Display, net::IpAddr, str::FromStr, sync::Arc};
 
 use anyhow::{Error, Result};
@@ -12,14 +10,14 @@ pub(super) struct Request {
     method: Arc<String>,
     version: Arc<String>,
     header: HashMap<Arc<String>, Vec<Arc<String>>>,
-    source_addr: Arc<String>,
+    pub source_ip: Arc<String>,
 }
 
 ///"GET /apache_pb.gif HTTP/1.0" curl/
 impl Display for Request {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{} \"{} {} {}\" ", self.source_addr, self.method, self.path, self.version)?;
-        match self.header.iter().find_map(|(k, v)| (k.as_str() == "user-agent").then_some(v)) {
+        write!(f, "{} \"{} {} {}\" ", self.source_ip, self.method, self.path, self.version)?;
+        match self.header("user-agent") {
             Some(ua) if !ua.is_empty() => {
                 let mut sep = std::iter::once("");
                 ua.iter().for_each(|elem| {
@@ -38,7 +36,7 @@ impl From<&host::Request> for Request {
             path: to_string(&request.uri()).into(),
             method: to_string(&request.method()).into(),
             version: to_string(&request.version()).into(),
-            source_addr: parse_socket_addr(&request.source_addr())
+            source_ip: parse_socket_addr(&request.source_addr())
                 .map(|a| a.to_string().into())
                 .unwrap_or_default(),
             header: map_header(&request.header),
@@ -59,6 +57,10 @@ fn map_header(header: &host::Header) -> HashMap<Arc<String>, Vec<Arc<String>>> {
 }
 
 impl Request {
+    pub(super) fn header(&self, name: &str) -> Option<&Vec<Arc<String>>> {
+        self.header.iter().find_map(|(k, v)| (k.as_str() == name).then_some(v))
+    }
+
     /// Builds the CEL value for this request. Only `Arc` reference counts are
     /// bumped — no string data is copied.
     pub(super) fn value(&self) -> Value {
@@ -80,7 +82,7 @@ impl Request {
                 field("path", &self.path),
                 field("method", &self.method),
                 field("version", &self.version),
-                field("source_addr", &self.source_addr),
+                field("source_addr", &self.source_ip),
                 (
                     Key::String(String::from("header").into()),
                     Value::Map(Map { map: Arc::new(header) }),
@@ -122,38 +124,29 @@ fn byte_split(slice: &[u8], delim: u8) -> Option<(&[u8], &[u8])> {
 
 #[cfg(test)]
 impl Request {
-    pub(super) fn get_request() -> &'static Request {
-        static GET_REQUEST: OnceLock<Request> = OnceLock::new();
-        GET_REQUEST.get_or_init(|| Request {
-            path: "/".to_string().into(),
-            method: "GET".to_string().into(),
-            version: "HTTP/1.1".to_string().into(),
-            header: HashMap::new(),
-            source_addr: String::new().into(),
-        })
-    }
-
-    pub(super) fn post_request() -> &'static Request {
-        static POST_REQUEST: OnceLock<Request> = OnceLock::new();
-        POST_REQUEST.get_or_init(|| Request {
-            path: "/".to_string().into(),
-            method: "POST".to_string().into(),
-            version: "HTTP/1.1".to_string().into(),
-            header: HashMap::new(),
-            source_addr: String::new().into(),
-        })
-    }
-
-    pub(super) fn user_agent_request() -> Request {
+    pub(super) fn get_request() -> Request {
         Request {
             path: "/".to_string().into(),
             method: "GET".to_string().into(),
             version: "HTTP/1.1".to_string().into(),
-            header: HashMap::from([(
-                "user-agent".to_string().into(),
-                vec!["curl/8.0".to_string().into()],
-            )]),
-            source_addr: "127.0.0.1".to_string().into(),
+            header: HashMap::from([
+                ("user-agent".to_string().into(), vec!["curl/8.0".to_string().into()]),
+                ("x-real-ip".to_string().into(), vec!["1.1.1.1".to_string().into()]),
+            ]),
+            source_ip: "127.0.0.1".to_string().into(),
+        }
+    }
+
+    pub(super) fn post_request() -> Request {
+        Request {
+            path: "/".to_string().into(),
+            method: "POST".to_string().into(),
+            version: "HTTP/1.1".to_string().into(),
+            header: HashMap::from([
+                ("user-agent".to_string().into(), vec!["curl/8.0".to_string().into()]),
+                ("x-real-ip".to_string().into(), vec!["1.1.1.1".to_string().into()]),
+            ]),
+            source_ip: "127.0.0.1".to_string().into(),
         }
     }
 }
@@ -175,7 +168,7 @@ mod tests {
                 "user-agent".to_string().into(),
                 vec!["curl/8.0".to_string().into()],
             )]),
-            source_addr: "127.0.0.1".to_string().into(),
+            source_ip: "127.0.0.1".to_string().into(),
         };
         assert_eq!(format!("{}", req), "127.0.0.1 \"GET /foo/bar HTTP/1.1\" \"curl/8.0\"");
     }
@@ -187,7 +180,7 @@ mod tests {
             method: "POST".to_string().into(),
             version: "HTTP/2.0".to_string().into(),
             header: HashMap::new(),
-            source_addr: "127.0.0.1".to_string().into(),
+            source_ip: "127.0.0.1".to_string().into(),
         };
         assert_eq!(format!("{}", req), "127.0.0.1 \"POST /foo/bar HTTP/2.0\" -");
     }
@@ -199,7 +192,7 @@ mod tests {
             method: "GET".to_string().into(),
             version: "HTTP/1.0".to_string().into(),
             header: HashMap::from([("user-agent".to_string().into(), vec![])]),
-            source_addr: "127.0.0.1:123".to_string().into(),
+            source_ip: "127.0.0.1:123".to_string().into(),
         };
         assert_eq!(format!("{}", req), "127.0.0.1:123 \"GET / HTTP/1.0\" -");
     }

@@ -1,3 +1,5 @@
+source_ip: request.header.get('x-real-ip')
+
 actions:
   - &allow
     continue: true

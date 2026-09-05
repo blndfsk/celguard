@@ -4,22 +4,41 @@ use std::{
 };
 
 use anyhow::{Error, Result};
+use cel::Program;
 use http_wasm_guest::host;
 use serde::Deserialize;
 
-use crate::model::Rule;
+use crate::config::model::Response;
+
+mod deserialize;
+mod model;
+
+pub(crate) use model::{Action, Rule};
 
 #[derive(Deserialize, Debug, Default)]
 pub(crate) struct Config {
+    #[serde(default, deserialize_with = "deserialize::deserialize_opt_program")]
+    pub(crate) source_ip: Option<Program>,
     pub(crate) rules: Vec<Rule>,
 }
 
 #[derive(Debug, Deserialize)]
 struct HostConfig {
-    //TODO: Enum with variants for different sources
     #[serde(default)]
     paths: Vec<PathBuf>,
     config: Option<Config>,
+}
+
+/// Default action used when a rule matches without an explicit action.
+const DEFAULT_ACTION: Action = Action {
+    response: Some(Response { status: None, body: None, header: None }),
+    r#continue: false,
+};
+
+impl Config {
+    pub(crate) fn default_action() -> &'static Action {
+        &DEFAULT_ACTION
+    }
 }
 
 pub(crate) fn read() -> Result<Config> {
@@ -66,6 +85,7 @@ mod tests {
     #[test_log::test]
     fn test_read() -> TestResult {
         let cfg = r#"
+            source_ip: request.source_ip
             actions:
               - &myjail
                 response: { status: 403, body: forbidden, header: {allow: 'GET'} }
@@ -82,7 +102,7 @@ mod tests {
         let r = BufReader::new(cfg.as_bytes());
         let config: Config = serde_saphyr::from_reader(r)?;
 
-        //assert!(config.actions.contains_key("myjail"));
+        assert!(config.source_ip.is_some());
         assert_eq!(config.rules.len(), 1);
 
         let rule = config.rules.first().unwrap();

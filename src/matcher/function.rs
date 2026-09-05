@@ -27,3 +27,15 @@ pub(crate) fn has(This(this): This<Value>, elem: Arc<String>) -> ResolveResult {
         _ => Err(cel::ExecutionError::NoSuchOverload),
     }
 }
+
+pub(crate) fn get(This(this): This<Value>, elem: Arc<String>) -> ResolveResult {
+    let first = |list: &Arc<Vec<Value>>| Value::from(list.first().unwrap_or_else(|| &Value::Null));
+    match this {
+        Value::Map(map) => match map.get(&Key::from(elem)) {
+            Some(Value::List(list)) => Ok(first(list)),
+            _ => Ok(Value::Null),
+        },
+        Value::List(list) => Ok(first(&list)),
+        _ => Err(cel::ExecutionError::NoSuchOverload),
+    }
+}

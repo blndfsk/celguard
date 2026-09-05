@@ -8,7 +8,7 @@ rules:
     log: warn
     tests:
       - request.header.has('user-agent') == false
-      - request.header['user-agent'].all(h, h.trim() == '')
+      - request.header['user-agent'] == []
     action: *block_empty_useragent
 
   - name: default
