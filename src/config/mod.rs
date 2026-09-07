@@ -34,9 +34,9 @@ fn read_from(paths: &[PathBuf]) -> Result<Config> {
     if paths.is_empty() {
         return Err(Error::msg("no config paths provided"));
     }
-    let reader = combine(paths);
-    let config: Config = serde_saphyr::from_reader(reader)?;
-    return Ok(config);
+
+    let config: Config = serde_saphyr::from_reader(combine(paths))?;
+    Ok(config)
 }
 
 fn combine(paths: &[PathBuf]) -> Box<dyn Read> {
