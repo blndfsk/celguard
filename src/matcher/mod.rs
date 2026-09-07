@@ -1,5 +1,5 @@
 use crate::{
-    config::{Action, Config},
+    config::{matcher::Config, rule::Action},
     matcher::request::Request,
 };
 use anyhow::Result;
@@ -89,7 +89,7 @@ fn is_match(program: &Program, context: &Context) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use crate::config::Rule;
+    use crate::config::rule::Rule;
 
     use super::*;
 

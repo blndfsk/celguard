@@ -16,31 +16,18 @@ The intended use is for small sites that want to block or log certain requests w
 Rules are written in YAML and use CEL expressions for matching. 
 
 ### Defaults
-The default action is supplied on all rules without an action.
-```yaml
-actions:
-  - &default
-    continue: false
-    response: { status: 403, body: "", header: {} }
-
-rules:
-  - disabled: false 
-    log: off        
-    tests: []
-    action: *default
-```
-
+The default action (status:400, no body) is supplied on all rules without an action.
 
 ### Rule Example
 
 ```yaml
-rules:
-  - name: useragent
-    tests:
-      - request.header.has('user-agent') == false
-      - request.header['user-agent'] == []
+matcher:
+  rules:
+    - name: useragent
+      tests:
+        - request.header.contains('user-agent') == false
 ```
-This would test if the header-map does not contain an `user-agent` or if the header value is empty.
+This would test if the header-map does not contain an `user-agent`.
 
 ### Request Object
 

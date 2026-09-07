@@ -1,8 +1,7 @@
-use std::{collections::HashMap, fmt::Display, net::IpAddr, str::FromStr, sync::Arc};
-
 use anyhow::{Error, Result};
 use cel::objects::{Key, Map, Value};
 use http_wasm_guest::host;
+use std::{collections::HashMap, fmt::Display, net::IpAddr, str::FromStr, sync::Arc};
 
 #[derive(Eq, PartialEq, Debug)]
 pub(super) struct Request {

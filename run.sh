@@ -39,10 +39,10 @@ podman run -d --pod $pod --replace --name whoami \
     --label "traefik.http.services.whoami.loadbalancer.server.url=http://localhost:8081" \
     traefik/whoami -port 8081
 
-    podman run -it --rm --pod $pod \
-        --volume /run/user/${UID}/podman/podman.sock:/var/run/docker.sock \
-        --volume ./config:$ROOT_DIR/config/ \
-        $traefik_container --entrypoints.web.address=:8080 --providers.docker=true --providers.docker.exposedbydefault=false \
-        --log.level=INFO \
-        --global.checknewversion=false \
-        $traefik_parameter
+podman run -it --rm --pod $pod \
+    --volume /run/user/${UID}/podman/podman.sock:/var/run/docker.sock \
+    --volume ./config:$ROOT_DIR/config/ \
+    $traefik_container --entrypoints.web.address=:8080 --providers.docker=true --providers.docker.exposedbydefault=false \
+    --log.level=INFO \
+    --global.checknewversion=false \
+    $traefik_parameter

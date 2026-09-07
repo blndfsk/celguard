@@ -1,4 +1,5 @@
 # The minimal rule would match on any request and return the default action.
-# Every response will be `403 - Forbidden` with an empty body.
-rules:
-  - name: default
+# Every response will be `400 - Bad Request` with an empty body.
+matcher:
+  rules:
+    - name: default

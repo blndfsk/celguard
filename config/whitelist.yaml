@@ -1,37 +1,35 @@
-source_ip: request.header['x-real-ip'].get_first()
 
-actions:
-  - &allow
-    continue: true
-  - &bad_request
-    response: { status: 400 }
-  - &method_not_allowed
-    response: { status: 405, header: { allow: "GET, HEAD, OPTIONS" } }
+plugin:
+  default_status: 400
 
-rules:
-  - name: method
-    log: warn
-    tests:
-      - request.method in ['GET','HEAD','OPTIONS'] != true
-    action: *method_not_allowed
+matcher:
+  source_ip: request.header['x-real-ip'].get_first()
 
-  - name: empty_agent
-    log: warn
-    tests:
-      - request.header.contains('user-agent') == false
-      - request.header['user-agent'].all(h, h.trim() == '')
-    action: *bad_request
+  rules:
+    - name: method
+      log: warn
+      tests:
+        - request.method in ['GET','HEAD','OPTIONS'] != true
+      action:
+        response: { status: 405, header: { allow: "GET, HEAD, OPTIONS" } }
 
-  - name: whitelist
-    tests:
-      - request.path == '/'
-      - request.path == '/status'
-      - request.path == '/robots.txt'
-      - request.path == '/sitemap.xml'
-      - request.path.startsWith('/js/')
-      - request.path.startsWith('/css/')
-      - request.path.startsWith('/images/')
-    action: *allow
+    - name: empty_agent
+      log: warn
+      tests:
+        - request.header.contains('user-agent') == false
+        - request.header['user-agent'].all(h, h.trim() == '')
 
-  - name: default
-    log: warn
+    - name: whitelist
+      tests:
+        - request.path == '/'
+        - request.path == '/status'
+        - request.path == '/robots.txt'
+        - request.path == '/sitemap.xml'
+        - request.path.startsWith('/js/')
+        - request.path.startsWith('/css/')
+        - request.path.startsWith('/images/')
+      action:
+        continue: true
+
+    - name: default
+      log: warn

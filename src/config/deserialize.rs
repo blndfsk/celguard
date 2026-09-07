@@ -79,7 +79,3 @@ where
 
     d.deserialize_str(LevelFilterVisitor)
 }
-
-pub(super) fn default_level() -> LevelFilter {
-    LevelFilter::Off
-}
