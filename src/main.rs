@@ -3,7 +3,7 @@ use crate::{
     matcher::{Matcher, Outcome},
 };
 use http_wasm_guest::{
-    Guest, HostLogger,
+    Guest, HostLogger, HostLoggerConfig,
     host::{Request, Response},
     register,
 };
@@ -60,7 +60,8 @@ impl<'a> Plugin<'a> {
 // order matters
 
 fn main() {
-    let _ = HostLogger::init();
+    let _ =
+        HostLogger::init_with_config(HostLoggerConfig { with_target: true, ..Default::default() });
 
     match config::read() {
         Ok(config) => {

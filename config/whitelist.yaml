@@ -3,7 +3,7 @@ plugin:
   default_status: 400
 
 matcher:
-  source_ip: request.headers['x-real-ip'].get_first()
+  source_ip: request.headers['x-real-ip']
 
   actions:
     - &default_action
@@ -21,7 +21,7 @@ matcher:
       log: warn
       tests:
         - request.headers.contains('user-agent') == false
-        - request.headers['user-agent'].all(h, h.trim() == '')
+        - request.headers['user-agent'].trim() == ''
 
     - name: whitelist
       tests:

@@ -7,6 +7,7 @@ use cel::{ExecutionError, ResolveResult, Value, extractors::This, objects::KeyRe
 /// `x-real-ip` header, or `null` if it is not present.
 ///
 /// Fails with `NoSuchOverload` if the receiver is not a list.
+#[allow(dead_code)]
 pub fn get_first(This(this): This<Value>) -> ResolveResult {
     Ok(match this {
         Value::List(v) => Value::from(v.first().unwrap_or_else(|| &Value::Null)),

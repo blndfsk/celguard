@@ -26,7 +26,6 @@ impl<'a> Matcher<'a> {
     pub(crate) fn new(config: Config) -> Self {
         let mut context = cel::Context::default();
         context.add_function("contains", cel::functions::contains);
-        context.add_function("get_first", functions::get_first);
         context.add_function("lower", |This(s): This<Arc<String>>| s.to_lowercase());
         context.add_function("trim", |This(s): This<Arc<String>>| s.trim().to_string());
         Matcher { context, config }
@@ -238,7 +237,7 @@ mod tests {
 
         let m = Matcher::new(Config {
             rules: vec![Rule { tests: vec![], action: None, ..Rule::default() }],
-            source_ip: Some(Program::compile("request.headers['x-real-ip'].get_first()")?),
+            source_ip: Some(Program::compile("request.headers['x-real-ip']")?),
         });
         m.set_real_ip(&mut req);
         assert_eq!(req.source_ip, "1.1.1.1".to_string().into());

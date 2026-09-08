@@ -113,9 +113,9 @@ request:
   version: HTTP/1.1
   source_ip: 192.0.2.1
   header:
-    host: [whoami.localhost:8080]
-    user-agent: [curl/8.20.0]
-    accept: ["*/*"]
+    host: whoami.localhost:8080
+    user-agent: curl/8.20.0
+    accept: "*/*"
 ```
 
 `source_ip` is the resolved client IP, see [Client IP](#client-ip).

@@ -69,7 +69,11 @@ impl Request {
             .map(|(k, v)| {
                 (
                     Key::String(k.clone()),
-                    Value::List(Arc::new(v.iter().cloned().map(Value::String).collect())),
+                    match v.len() {
+                        0 => Value::Null,
+                        1 => Value::String(v[0].clone()),
+                        _ => Value::List(Arc::new(v.iter().cloned().map(Value::String).collect())),
+                    },
                 )
             })
             .collect();
@@ -88,6 +92,7 @@ impl Request {
 fn to_string(input: &[u8]) -> String {
     String::from_utf8_lossy(input).into_owned()
 }
+
 /// Parses a socket address from the request source address.
 /// valid formats: `ipv4:port`, `[ipv6]:port`, `[ipv6%zone]:port`, `[ipv6]`
 /// returns the addr-part as a string
