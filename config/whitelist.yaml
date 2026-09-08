@@ -3,7 +3,11 @@ plugin:
   default_status: 400
 
 matcher:
-  source_ip: request.header['x-real-ip'].get_first()
+  source_ip: request.headers['x-real-ip'].get_first()
+
+  actions:
+    - &default_action
+      response: { status: 400 }
 
   rules:
     - name: method
@@ -16,8 +20,8 @@ matcher:
     - name: empty_agent
       log: warn
       tests:
-        - request.header.contains('user-agent') == false
-        - request.header['user-agent'].all(h, h.trim() == '')
+        - request.headers.contains('user-agent') == false
+        - request.headers['user-agent'].all(h, h.trim() == '')
 
     - name: whitelist
       tests:
@@ -33,3 +37,4 @@ matcher:
 
     - name: default
       log: warn
+      action: *default_action

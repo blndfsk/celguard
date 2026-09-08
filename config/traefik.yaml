@@ -4,4 +4,4 @@ matcher:
     - name: useragent
       log: warn
       tests:
-        - request.header.contains('user-agent') == false
+        - request.headers.contains('user-agent') == false

@@ -8,7 +8,7 @@ pub(super) struct Request {
     path: Arc<String>,
     method: Arc<String>,
     version: Arc<String>,
-    header: HashMap<Arc<String>, Vec<Arc<String>>>,
+    headers: HashMap<Arc<String>, Vec<Arc<String>>>,
     pub source_ip: Arc<String>,
 }
 
@@ -38,7 +38,7 @@ impl From<&host::Request> for Request {
             source_ip: parse_socket_addr(&request.source_addr())
                 .map(|a| a.to_string().into())
                 .unwrap_or_default(),
-            header: map_header(&request.header),
+            headers: map_header(&request.header),
         }
     }
 }
@@ -57,14 +57,14 @@ fn map_header(header: &host::Header) -> HashMap<Arc<String>, Vec<Arc<String>>> {
 
 impl Request {
     pub(super) fn header(&self, name: &str) -> Option<&Vec<Arc<String>>> {
-        self.header.iter().find_map(|(k, v)| (k.as_str() == name).then_some(v))
+        self.headers.iter().find_map(|(k, v)| (k.as_str() == name).then_some(v))
     }
 
     /// Builds the CEL value for this request. Only `Arc` reference counts are
     /// bumped — no string data is copied.
     pub(super) fn value(&self) -> Value {
-        let header = self
-            .header
+        let headers = self
+            .headers
             .iter()
             .map(|(k, v)| {
                 (
@@ -73,19 +73,14 @@ impl Request {
                 )
             })
             .collect();
-        let field = |name: &str, value: &Arc<String>| {
-            (Key::String(String::from(name).into()), Value::String(value.clone()))
-        };
+        let field = |name: &str, value: Value| (Key::String(String::from(name).into()), value);
         Value::Map(Map {
             map: Arc::new(HashMap::from([
-                field("path", &self.path),
-                field("method", &self.method),
-                field("version", &self.version),
-                field("source_addr", &self.source_ip),
-                (
-                    Key::String(String::from("header").into()),
-                    Value::Map(Map { map: Arc::new(header) }),
-                ),
+                field("path", Value::String(self.path.clone())),
+                field("method", Value::String(self.method.clone())),
+                field("version", Value::String(self.version.clone())),
+                field("source_ip", Value::String(self.source_ip.clone())),
+                field("headers", Value::Map(Map { map: Arc::new(headers) })),
             ])),
         })
     }
@@ -128,7 +123,7 @@ impl Request {
             path: "/".to_string().into(),
             method: "GET".to_string().into(),
             version: "HTTP/1.1".to_string().into(),
-            header: HashMap::from([
+            headers: HashMap::from([
                 ("user-agent".to_string().into(), vec!["curl/8.0".to_string().into()]),
                 ("x-real-ip".to_string().into(), vec!["1.1.1.1".to_string().into()]),
             ]),
@@ -141,7 +136,7 @@ impl Request {
             path: "/".to_string().into(),
             method: "POST".to_string().into(),
             version: "HTTP/1.1".to_string().into(),
-            header: HashMap::from([
+            headers: HashMap::from([
                 ("user-agent".to_string().into(), vec!["curl/8.0".to_string().into()]),
                 ("x-real-ip".to_string().into(), vec!["1.1.1.1".to_string().into()]),
             ]),
@@ -163,7 +158,7 @@ mod tests {
             path: "/foo/bar".to_string().into(),
             method: "GET".to_string().into(),
             version: "HTTP/1.1".to_string().into(),
-            header: HashMap::from([(
+            headers: HashMap::from([(
                 "user-agent".to_string().into(),
                 vec!["curl/8.0".to_string().into()],
             )]),
@@ -178,7 +173,7 @@ mod tests {
             path: "/foo/bar".to_string().into(),
             method: "POST".to_string().into(),
             version: "HTTP/2.0".to_string().into(),
-            header: HashMap::new(),
+            headers: HashMap::new(),
             source_ip: "127.0.0.1".to_string().into(),
         };
         assert_eq!(format!("{}", req), "127.0.0.1 \"POST /foo/bar HTTP/2.0\" -");
@@ -190,7 +185,7 @@ mod tests {
             path: "/".to_string().into(),
             method: "GET".to_string().into(),
             version: "HTTP/1.0".to_string().into(),
-            header: HashMap::from([("user-agent".to_string().into(), vec![])]),
+            headers: HashMap::from([("user-agent".to_string().into(), vec![])]),
             source_ip: "127.0.0.1:123".to_string().into(),
         };
         assert_eq!(format!("{}", req), "127.0.0.1:123 \"GET / HTTP/1.0\" -");
