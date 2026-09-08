@@ -15,17 +15,17 @@ pub(super) struct Request {
 ///"GET /apache_pb.gif HTTP/1.0" curl/
 impl Display for Request {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{} \"{} {} {}\" ", self.source_ip, self.method, self.path, self.version)?;
-        match self.header("user-agent") {
-            Some(ua) if !ua.is_empty() => {
-                let mut sep = std::iter::once("");
-                ua.iter().for_each(|elem| {
-                    write!(f, "{}\"{}\"", sep.next().unwrap_or(", "), elem).unwrap_or_default();
-                });
-            }
-            _ => write!(f, "-")?,
+        write!(f, "{} \"{} {} {}\"", self.source_ip, self.method, self.path, self.version)?;
+        match self
+            .headers
+            .iter()
+            .find(|(k, _)| k.as_str() == "user-agent")
+            .and_then(|(_, v)| v.first())
+            .filter(|v| !v.is_empty())
+        {
+            Some(ua) => write!(f, " \"{}\"", ua),
+            None => write!(f, " -"),
         }
-        Ok(())
     }
 }
 
@@ -56,10 +56,6 @@ fn map_header(header: &host::Header) -> HashMap<Arc<String>, Vec<Arc<String>>> {
 }
 
 impl Request {
-    pub(super) fn header(&self, name: &str) -> Option<&Vec<Arc<String>>> {
-        self.headers.iter().find_map(|(k, v)| (k.as_str() == name).then_some(v))
-    }
-
     /// Builds the CEL value for this request. Only `Arc` reference counts are
     /// bumped — no string data is copied.
     pub(super) fn value(&self) -> Value {
