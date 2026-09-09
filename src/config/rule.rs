@@ -11,7 +11,7 @@ pub(crate) struct Rule {
     pub(crate) name: String,
     #[serde(default)]
     pub(crate) disabled: bool,
-    #[serde(deserialize_with = "deserialize::deserialize_level", default = "default_level")]
+    #[serde(default = "default_level", deserialize_with = "deserialize::deserialize_level")]
     pub(crate) log: LevelFilter,
     #[serde(default, deserialize_with = "deserialize::deserialize_vec_program")]
     pub(crate) tests: Vec<Program>,

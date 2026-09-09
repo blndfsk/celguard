@@ -33,24 +33,24 @@ impl<'a> Guest for Plugin<'a> {
 impl<'a> Plugin<'a> {
     fn execute(&self, action: &Action, response: &Response) -> (bool, i32) {
         if let Some(resp) = action.response.as_ref() {
-            self.write_header(response, resp.header.as_ref());
-            self.write_status(response, resp.status.as_ref());
-            self.write_body(response, resp.body.as_ref());
+            self.write_header(response, &resp.header);
+            self.write_status(response, &resp.status);
+            self.write_body(response, &resp.body);
         }
         (action.r#continue, 0)
     }
 
-    fn write_header(&self, response: &Response, header: Option<&HashMap<String, String>>) {
+    fn write_header(&self, response: &Response, header: &Option<HashMap<String, String>>) {
         if let Some(map) = header {
             for (key, value) in map {
                 response.header.set(key.as_bytes(), value.as_bytes());
             }
         }
     }
-    fn write_status(&self, response: &Response, status: Option<&i32>) {
-        response.set_status(*status.unwrap_or(&self.config.default_status));
+    fn write_status(&self, response: &Response, status: &Option<i32>) {
+        response.set_status(status.unwrap_or(self.config.default_status));
     }
-    fn write_body(&self, response: &Response, body: Option<&String>) {
+    fn write_body(&self, response: &Response, body: &Option<String>) {
         if let Some(str) = body {
             response.body.write(str.as_bytes());
         }
