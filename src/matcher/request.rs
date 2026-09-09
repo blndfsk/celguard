@@ -12,7 +12,7 @@ pub(super) struct Request {
     pub source_ip: Arc<String>,
 }
 
-///"GET /apache_pb.gif HTTP/1.0" curl/
+// e.g. "127.0.0.1 \"GET /apache_pb.gif HTTP/1.0\" \"curl/8.20.0\""
 impl Display for Request {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{} \"{} {} {}\"", self.source_ip, self.method, self.path, self.version)?;
