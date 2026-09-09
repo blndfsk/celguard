@@ -1,4 +1,4 @@
-use anyhow::{Error, Result};
+use anyhow::{Context, Error, Result};
 use http_wasm_guest::host;
 use serde::Deserialize;
 use std::{
@@ -26,7 +26,8 @@ struct HostConfig {
 }
 
 pub(crate) fn read() -> Result<Config> {
-    let hc: HostConfig = serde_saphyr::from_slice(&host::admin::config()).map_err(Error::from)?;
+    let hc: HostConfig =
+        serde_saphyr::from_slice(&host::admin::config()).context("failed to parse host config")?;
     hc.config.map_or_else(|| read_from(&hc.paths), Ok)
 }
 
@@ -35,7 +36,9 @@ fn read_from(paths: &[PathBuf]) -> Result<Config> {
         return Err(Error::msg("no config paths provided"));
     }
 
-    let config: Config = serde_saphyr::from_reader(combine(paths))?;
+    let where_from = paths.iter().map(|p| p.to_string_lossy()).collect::<Vec<_>>().join(", ");
+    let config: Config = serde_saphyr::from_reader(combine(paths))
+        .with_context(|| format!("failed to read config from {where_from}"))?;
     Ok(config)
 }
 
