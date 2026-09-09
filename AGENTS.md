@@ -5,7 +5,7 @@
 A Traefik Wasm plugin (Rust) that evaluates incoming requests against CEL rules and executes the matching action (e.g. blocking the request).
 
 - Wasm host API: `http-wasm-guest`, registered in `src/main.rs`
-- Rule config: YAML via `serde-saphyr`, example in `config/rules.yaml`
+- Rule config: YAML via `serde-saphyr`, examples in `config/` (`whitelist.yaml` is the fullest)
 - Request flow: `src/main.rs` → `Plugin::handle_request` → `matcher::Matcher::evaluate` → action
 - Version control: git
 
@@ -22,6 +22,7 @@ A Traefik Wasm plugin (Rust) that evaluates incoming requests against CEL rules 
 | Run tests | `cargo test` |
 | Check formatting | `cargo fmt --check` |
 | Lint | `cargo clippy --target wasm32-wasip1` |
+| E2E test (needs podman + buildah) | `./run.sh [whitelist\|allow\|minimal]` — runs the plugin under Traefik v3.7, host port 8081 |
 
 ## Constraints
 

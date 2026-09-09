@@ -32,11 +32,11 @@ plugin:
 
 ### Client IP
 
-By default the client address is the socket address of the connection. Behind a proxy or load balancer that value is not the real client IP, so you can point the plugin at a header instead with a CEL expression. The expression is evaluated against the request, must return a string, and its result is exposed to your rules as `request.source_ip`.
+By default the client address is the socket address of the connection. Behind a proxy or load balancer that value is not the real client IP, so you can point the plugin at a header instead with a CEL expression. The expression is evaluated against the request, must return a string, and its result is exposed to your rules as `request.source_ip`. If it does not evaluate to a string (for example, because the header is missing), the socket address is used.
 
 ```yaml
 matcher:
-  source_ip: request.header['x-real-ip'].get_first()
+  source_ip: request.headers['x-real-ip']
 ```
 
 ### Defaults
@@ -53,7 +53,7 @@ matcher:
     - name: useragent
       log: warn
       tests:
-        - request.header.contains('user-agent') == false
+      - request.headers.contains('user-agent') == false
 ```
 
 This would test if the header-map does not contain an `user-agent`.
@@ -112,7 +112,7 @@ request:
   method: GET
   version: HTTP/1.1
   source_ip: 192.0.2.1
-  header:
+  headers:
     host: whoami.localhost:8080
     user-agent: curl/8.20.0
     accept: "*/*"
@@ -123,12 +123,11 @@ request:
 ## CEL Expressions
 The heavy lifting is done with the [CEL crate](https://crates.io/crates/cel) which implements the [Cel-Spec](https://github.com/cel-expr/cel-spec).
 
-Header values are lists and a few helper functions are available to work with them:
+Header values are strings when a header has a single value, or lists of strings when it has multiple. A few helper functions are available to work with them:
 
 | Function | Description |
 | --- | --- |
 | `contains(name)` | `true` if the header map has an entry for `name`. |
-| `get_first()` | The first value of a header, or `null` if it is not present. |
 | `lower()` | Lower-case a string. |
 | `trim()` | Trim surrounding whitespace from a string. |
 
