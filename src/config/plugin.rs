@@ -1,12 +1,12 @@
 use serde::Deserialize;
 
-#[derive(Deserialize, Debug, Default)]
+#[derive(Deserialize, Debug)]
 pub(crate) struct Config {
-    #[serde(default = "default_status")]
     pub(crate) default_status: i32,
 }
 
-/// Returns the default status code if none is specified in the config.
-fn default_status() -> i32 {
-    400
+impl Default for Config {
+    fn default() -> Self {
+        Self { default_status: 400 }
+    }
 }

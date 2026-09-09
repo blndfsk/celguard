@@ -11,7 +11,7 @@ pub(crate) mod matcher;
 pub(crate) mod plugin;
 pub(crate) mod rule;
 
-#[derive(Deserialize, Debug, Default)]
+#[derive(Deserialize, Debug)]
 pub(crate) struct Config {
     #[serde(default)]
     pub(crate) plugin: plugin::Config,
@@ -70,8 +70,10 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_read() -> TestResult {
+    fn test_read_full() -> TestResult {
         let cfg = r#"
+            plugin:
+              default_status: 401
             matcher:
               source_ip: request.source_ip
               actions:
@@ -89,6 +91,10 @@ mod tests {
                   action: *myjail"#;
         let r = BufReader::new(cfg.as_bytes());
         let config: Config = serde_saphyr::from_reader(r)?;
+
+        let pc = config.plugin;
+        assert_eq!(pc.default_status, 401);
+
         let mc = config.matcher;
 
         assert!(mc.source_ip.is_some());
@@ -101,6 +107,30 @@ mod tests {
         let action = rule.action.as_ref().unwrap();
         assert!(!action.r#continue);
         assert!(action.response.is_some());
+        Ok(())
+    }
+
+    #[test]
+    fn test_read_minimal() -> TestResult {
+        let cfg = r#"
+            matcher:
+              rules:
+                - name: get_foobar
+                  tests: []"#;
+        let r = BufReader::new(cfg.as_bytes());
+        let config: Config = serde_saphyr::from_reader(r)?;
+
+        let pc = config.plugin;
+        assert_eq!(pc.default_status, 400);
+
+        let mc = config.matcher;
+
+        assert!(mc.source_ip.is_none());
+        assert_eq!(mc.rules.len(), 1);
+
+        let rule = mc.rules.first().unwrap();
+        assert_eq!(rule.name, "get_foobar");
+        assert!(rule.action.is_none());
         Ok(())
     }
 
