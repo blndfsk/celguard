@@ -2,7 +2,7 @@
 set -eu -o pipefail
 
 plugin="celguard"
-pod=$(podman pod create -p 8080:8080)
+pod=$(podman pod create -p 8081:80)
 config="${1:-whitelist}".yaml
 
 function cleanup()
@@ -42,7 +42,7 @@ podman run -d --pod $pod --replace --name whoami \
 podman run -it --rm --pod $pod \
     --volume /run/user/${UID}/podman/podman.sock:/var/run/docker.sock \
     --volume ./config:$ROOT_DIR/config/ \
-    $traefik_container --entrypoints.web.address=:8080 --providers.docker=true --providers.docker.exposedbydefault=false \
+    $traefik_container --entrypoints.web.address=:80 --providers.docker=true --providers.docker.exposedbydefault=false \
     --log.level=INFO \
     --global.checknewversion=false \
     $traefik_parameter
