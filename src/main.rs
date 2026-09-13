@@ -12,6 +12,8 @@ use std::collections::HashMap;
 mod config;
 mod matcher;
 
+const VERSION: &str = env!("CARGO_PKG_VERSION");
+
 struct Plugin<'a> {
     config: plugin::Config,
     matcher: Matcher<'a>,
@@ -67,7 +69,14 @@ fn main() {
         Ok(config) => {
             let plugin = Plugin { config: config.plugin, matcher: Matcher::new(config.matcher) };
             register(plugin);
+            log::info!("Started Version {}", VERSION);
         }
-        Err(err) => log::error!(target: "celguard", "Config {}", err),
+        Err(err) => {
+            log::error!("Config {}", err);
+            let cause: &str = &err.root_cause().to_string();
+            for line in cause.split("\\n") {
+                log::error!("{}", line);
+            }
+        }
     }
 }

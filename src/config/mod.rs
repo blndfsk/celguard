@@ -37,7 +37,8 @@ fn read_from(paths: &[PathBuf]) -> Result<Config> {
     }
 
     let where_from = paths.iter().map(|p| p.to_string_lossy()).collect::<Vec<_>>().join(", ");
-    let config: Config = serde_saphyr::from_reader(combine(paths))
+    let options = serde_saphyr::options! { with_snippet: false };
+    let config: Config = serde_saphyr::from_reader_with_options(combine(paths), options)
         .with_context(|| format!("failed to read config from {where_from}"))?;
     Ok(config)
 }

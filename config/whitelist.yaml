@@ -23,6 +23,11 @@ matcher:
         - request.headers.contains('user-agent') == false
         - request.headers['user-agent'].trim() == ''
 
+    - name: path
+      log: warn
+      tests:
+        - request.path.matches('/\\.')
+
     - name: whitelist
       tests:
         - request.path == '/'
