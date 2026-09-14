@@ -30,6 +30,12 @@ impl Default for Rule {
     }
 }
 
+impl PartialEq for Rule {
+    fn eq(&self, other: &Self) -> bool {
+        self.name == other.name
+    }
+}
+
 #[derive(Deserialize, Default, Debug, PartialEq)]
 pub(crate) struct Action {
     pub(crate) response: Option<Response>,

@@ -1,5 +1,5 @@
 use crate::{
-    config::{plugin, rule::Action},
+    config::{plugin, rule::Rule},
     matcher::{Matcher, Outcome},
 };
 use http_wasm_guest::{
@@ -22,8 +22,8 @@ struct Plugin<'a> {
 impl<'a> Guest for Plugin<'a> {
     fn handle_request(&self, request: &Request, response: &Response) -> (bool, i32) {
         match self.matcher.evaluate(request) {
-            Ok(Outcome::Match(action)) => self.execute(action, response), //rule match with action
-            Ok(Outcome::NoMatch) => (true, 0),                            //no match - continue
+            Ok(Outcome::Match(rule)) => self.execute(rule, response), //rule match
+            Ok(Outcome::NoMatch) => (true, 0),                        //no match - continue
             Err(err) => {
                 log::error!("Matcher: {}", err);
                 (true, 0)
@@ -33,7 +33,11 @@ impl<'a> Guest for Plugin<'a> {
 }
 
 impl<'a> Plugin<'a> {
-    fn execute(&self, action: &Action, response: &Response) -> (bool, i32) {
+    fn execute(&self, rule: &Rule, response: &Response) -> (bool, i32) {
+        let action = match &rule.action {
+            Some(anchor) => &anchor.0,
+            None => self.config.default_action(),
+        };
         if let Some(resp) = action.response.as_ref() {
             self.write_header(response, &resp.header);
             self.write_status(response, &resp.status);

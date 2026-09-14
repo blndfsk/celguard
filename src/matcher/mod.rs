@@ -1,5 +1,5 @@
 use crate::{
-    config::{matcher::Config, rule::Action},
+    config::{matcher::Config, rule::Rule},
     matcher::request::Request,
 };
 use anyhow::Result;
@@ -18,7 +18,7 @@ pub(crate) struct Matcher<'a> {
 
 #[derive(Debug, PartialEq)]
 pub(crate) enum Outcome<'a> {
-    Match(&'a Action),
+    Match(&'a Rule),
     NoMatch,
 }
 
@@ -48,12 +48,8 @@ impl<'a> Matcher<'a> {
                 if let Some(level) = rule.log.to_level() {
                     log!(level, "{} => {}", rule.name, request);
                 }
-                return Ok(Outcome::Match({
-                    match &rule.action {
-                        Some(anchor) => &anchor.0,
-                        None => Config::default_action(),
-                    }
-                }));
+
+                return Ok(Outcome::Match(rule));
             }
         }
         Ok(Outcome::NoMatch)
@@ -91,9 +87,6 @@ mod tests {
     use crate::config::rule::Rule;
 
     use super::*;
-
-    use serde_saphyr::RcAnchor;
-    use std::{ptr, rc::Rc};
     use testresult::TestResult;
 
     #[test]
@@ -118,25 +111,21 @@ mod tests {
     #[test]
     fn test_first_matching_rule_wins() -> TestResult {
         let req = Request::get_request();
-        let action1 = RcAnchor::from(Rc::from(Action { response: None, r#continue: false }));
-        let action2 = RcAnchor::from(Rc::from(Action { response: None, r#continue: true }));
         let m = Matcher::new(Config {
             rules: vec![
                 Rule {
                     tests: vec![Program::compile("request.method == 'GET'")?],
-                    action: Some(RcAnchor::from(action1.clone())),
                     ..Rule::default()
                 },
                 Rule {
                     tests: vec![Program::compile("request.method == 'GET'")?],
-                    action: Some(RcAnchor::from(action2.clone())),
                     ..Rule::default()
                 },
             ],
             ..Config::default()
         });
         let out = m.eval(&req)?;
-        assert_eq!(Outcome::Match(&action1), out);
+        assert_eq!(Outcome::Match(&m.config.rules[0]), out);
         Ok(())
     }
 
@@ -146,24 +135,6 @@ mod tests {
         let m = Matcher::new(Config::default());
         let out = m.eval(&req)?;
         assert_eq!(Outcome::NoMatch, out);
-        Ok(())
-    }
-
-    #[test]
-    fn test_match_returns_action() -> TestResult {
-        let req = Request::get_request();
-        let action = RcAnchor::from(Rc::from(Action::default()));
-        let m = Matcher::new(Config {
-            rules: vec![Rule {
-                tests: vec![Program::compile("request.method == 'GET'")?],
-                action: Some(RcAnchor::from(action.clone())),
-                ..Rule::default()
-            }],
-            ..Config::default()
-        });
-
-        let out = m.eval(&req)?;
-        assert_eq!(Outcome::Match(&action), out);
         Ok(())
     }
 
@@ -183,52 +154,17 @@ mod tests {
     }
 
     #[test]
-    fn test_matching_rule_without_action() -> TestResult {
-        let req = Request::get_request();
-        let m = Matcher::new(Config {
-            rules: vec![Rule {
-                tests: vec![Program::compile("request.method == 'GET'")?],
-                ..Rule::default()
-            }],
-            ..Config::default()
-        });
-        let out = m.eval(&req)?;
-        let Outcome::Match(action) = out else { panic!() };
-        assert_eq!(Config::default_action(), action);
-        assert!(ptr::addr_eq(Config::default_action(), action));
-        assert!(action.response.is_some());
-        Ok(())
-    }
-
-    #[test]
-    fn test_rule_without_tests_and_action() -> TestResult {
-        let req = Request::get_request();
-        let m = Matcher::new(Config {
-            rules: vec![Rule { ..Default::default() }],
-            ..Config::default()
-        });
-        let out = m.eval(&req)?;
-        let Outcome::Match(action) = out else { panic!() };
-        assert_eq!(Config::default_action(), action);
-        assert!(ptr::addr_eq(Config::default_action(), action));
-        assert!(action.response.is_some());
-        Ok(())
-    }
-
-    #[test]
     fn test_header_rule_matches() -> TestResult {
         let req = Request::get_request();
-        let action = RcAnchor::from(Rc::from(Action::default()));
         let m = Matcher::new(Config {
             rules: vec![Rule {
                 tests: vec![Program::compile("request.headers.contains('user-agent')")?],
-                action: Some(RcAnchor::from(action.clone())),
                 ..Rule::default()
             }],
             ..Config::default()
         });
         let out = m.eval(&req)?;
-        assert_eq!(Outcome::Match(&action), out);
+        assert_eq!(Outcome::Match(&m.config.rules[0]), out);
         Ok(())
     }
     #[test]
@@ -236,8 +172,8 @@ mod tests {
         let mut req = Request::get_request();
 
         let m = Matcher::new(Config {
-            rules: vec![Rule { tests: vec![], action: None, ..Rule::default() }],
             source_ip: Some(Program::compile("request.headers['x-real-ip']")?),
+            ..Default::default()
         });
         m.set_real_ip(&mut req);
         assert_eq!(req.source_ip, "1.1.1.1".to_string().into());
