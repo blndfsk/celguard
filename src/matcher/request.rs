@@ -1,5 +1,5 @@
 use anyhow::{Error, Result};
-use cel::objects::{Key, Map, Value};
+use cel::objects::{Key, KeyRef, Map, Value};
 use http_wasm_guest::host;
 use std::{collections::HashMap, fmt::Display, net::IpAddr, str::FromStr, sync::Arc};
 
@@ -8,23 +8,20 @@ pub(crate) struct Request {
     path: Arc<String>,
     method: Arc<String>,
     version: Arc<String>,
-    headers: HashMap<Arc<String>, Vec<Arc<String>>>,
+    headers: Value, //a Value::Map
     pub source_ip: Arc<String>,
 }
-
+static AGENT: KeyRef = KeyRef::String("user-agent");
 // e.g. "127.0.0.1 \"GET /apache_pb.gif HTTP/1.0\" \"curl/8.20.0\""
 impl Display for Request {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{} \"{} {} {}\"", self.source_ip, self.method, self.path, self.version)?;
-        match self
-            .headers
-            .iter()
-            .find(|(k, _)| k.as_str() == "user-agent")
-            .and_then(|(_, v)| v.first())
-            .filter(|v| !v.is_empty())
-        {
-            Some(ua) => write!(f, " \"{}\"", ua),
-            None => write!(f, " -"),
+        match &self.headers {
+            Value::Map(map) => match map.get(&AGENT) {
+                Some(Value::String(ua)) if !ua.is_empty() => write!(f, " \"{}\"", ua),
+                _ => write!(f, " -"),
+            },
+            _ => write!(f, " -"),
         }
     }
 }
@@ -38,41 +35,43 @@ impl From<&host::Request> for Request {
             source_ip: parse_socket_addr(&request.source_addr())
                 .map(|a| a.to_string().into())
                 .unwrap_or_default(),
-            headers: map_header(&request.header),
+            headers: header_value(&request.header),
         }
     }
 }
 
-fn map_header(header: &host::Header) -> HashMap<Arc<String>, Vec<Arc<String>>> {
-    header
-        .names_iter()
-        .map(|name| {
-            let val = header.values_iter(&name).map(|i| to_string(&i).into()).collect::<Vec<_>>();
-            let mut key = to_string(&name);
-            key.make_ascii_lowercase();
-            (key.into(), val)
-        })
-        .collect()
+/// Builds the CEL value for the request headers.
+fn header_value(header: &host::Header) -> Value {
+    Value::Map(Map {
+        map: Arc::new(
+            header
+                .names_iter()
+                .map(|name| {
+                    let values: Vec<Arc<String>> =
+                        header.values_iter(&name).map(|value| to_string(&value).into()).collect();
+                    let mut key = to_string(&name);
+                    key.make_ascii_lowercase();
+                    (
+                        Key::String(key.into()),
+                        match values.len() {
+                            0 => Value::Null,
+                            1 => Value::String(values[0].clone()),
+                            _ => Value::List(Arc::new(
+                                values.into_iter().map(Value::String).collect(),
+                            )),
+                        },
+                    )
+                })
+                .collect(),
+        ),
+    })
 }
 
 impl Request {
-    /// Builds the CEL value for this request. Only `Arc` reference counts are
-    /// bumped — no string data is copied.
+    /// Builds the CEL value for this request. The header map was built once in
+    /// `From<&host::Request>`; only `Arc` reference counts are bumped here — no string
+    /// data is copied.
     pub(super) fn value(&self) -> Value {
-        let headers = self
-            .headers
-            .iter()
-            .map(|(k, v)| {
-                (
-                    Key::String(k.clone()),
-                    match v.len() {
-                        0 => Value::Null,
-                        1 => Value::String(v[0].clone()),
-                        _ => Value::List(Arc::new(v.iter().cloned().map(Value::String).collect())),
-                    },
-                )
-            })
-            .collect();
         let field = |name: &str, value: Value| (Key::String(String::from(name).into()), value);
         Value::Map(Map {
             map: Arc::new(HashMap::from([
@@ -80,7 +79,7 @@ impl Request {
                 field("method", Value::String(self.method.clone())),
                 field("version", Value::String(self.version.clone())),
                 field("source_ip", Value::String(self.source_ip.clone())),
-                field("headers", Value::Map(Map { map: Arc::new(headers) })),
+                field("headers", self.headers.clone()),
             ])),
         })
     }
@@ -124,10 +123,7 @@ impl Request {
             path: "/".to_string().into(),
             method: "GET".to_string().into(),
             version: "HTTP/1.1".to_string().into(),
-            headers: HashMap::from([
-                ("user-agent".to_string().into(), vec!["curl/8.0".to_string().into()]),
-                ("x-real-ip".to_string().into(), vec!["1.1.1.1".to_string().into()]),
-            ]),
+            headers: test_headers(&[("user-agent", &["curl/8.0"]), ("x-real-ip", &["1.1.1.1"])]),
             source_ip: "127.0.0.1".to_string().into(),
         }
     }
@@ -137,13 +133,31 @@ impl Request {
             path: "/".to_string().into(),
             method: "POST".to_string().into(),
             version: "HTTP/1.1".to_string().into(),
-            headers: HashMap::from([
-                ("user-agent".to_string().into(), vec!["curl/8.0".to_string().into()]),
-                ("x-real-ip".to_string().into(), vec!["1.1.1.1".to_string().into()]),
-            ]),
+            headers: test_headers(&[("user-agent", &["curl/8.0"]), ("x-real-ip", &["1.1.1.1"])]),
             source_ip: "127.0.0.1".to_string().into(),
         }
     }
+}
+
+/// Builds a CEL header value from (name, values) test pairs.
+#[cfg(test)]
+fn test_headers(pairs: &[(&str, &[&str])]) -> Value {
+    let map = pairs
+        .iter()
+        .map(|(name, values)| {
+            (
+                Key::String(name.to_string().into()),
+                match values.len() {
+                    0 => Value::Null,
+                    1 => Value::String(values[0].to_string().into()),
+                    _ => Value::List(Arc::new(
+                        values.iter().map(|v| Value::String(v.to_string().into())).collect(),
+                    )),
+                },
+            )
+        })
+        .collect();
+    Value::Map(Map { map: Arc::new(map) })
 }
 
 #[cfg(test)]
@@ -159,10 +173,7 @@ mod tests {
             path: "/foo/bar".to_string().into(),
             method: "GET".to_string().into(),
             version: "HTTP/1.1".to_string().into(),
-            headers: HashMap::from([(
-                "user-agent".to_string().into(),
-                vec!["curl/8.0".to_string().into()],
-            )]),
+            headers: test_headers(&[("user-agent", &["curl/8.0"])]),
             source_ip: "127.0.0.1".to_string().into(),
         };
         assert_eq!(format!("{}", req), "127.0.0.1 \"GET /foo/bar HTTP/1.1\" \"curl/8.0\"");
@@ -174,7 +185,7 @@ mod tests {
             path: "/foo/bar".to_string().into(),
             method: "POST".to_string().into(),
             version: "HTTP/2.0".to_string().into(),
-            headers: HashMap::new(),
+            headers: test_headers(&[]),
             source_ip: "127.0.0.1".to_string().into(),
         };
         assert_eq!(format!("{}", req), "127.0.0.1 \"POST /foo/bar HTTP/2.0\" -");
@@ -186,7 +197,7 @@ mod tests {
             path: "/".to_string().into(),
             method: "GET".to_string().into(),
             version: "HTTP/1.0".to_string().into(),
-            headers: HashMap::from([("user-agent".to_string().into(), vec![])]),
+            headers: test_headers(&[("user-agent", &[])]),
             source_ip: "127.0.0.1:123".to_string().into(),
         };
         assert_eq!(format!("{}", req), "127.0.0.1:123 \"GET / HTTP/1.0\" -");
