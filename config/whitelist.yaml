@@ -1,9 +1,8 @@
 plugin:
-  default_status: 400 # used for responses without status
+  default_status: 400 # used for action responses without status
   default_action:
     log: warn
     response: { status: 400 }
-    continue: false
 
 matcher:
   source_ip: request.headers['x-real-ip']
@@ -20,6 +19,9 @@ matcher:
       tests:
         - request.headers.contains('user-agent') == false
         - request.headers['user-agent'].trim() == ''
+      action:
+        log: warn
+        response: { status: 401, body: "empty agent" }
 
     - name: path
       tests:
@@ -35,6 +37,7 @@ matcher:
         - request.path.startsWith('/css/')
         - request.path.startsWith('/images/')
       action:
+        log: info
         continue: true
 
     - name: default

@@ -97,7 +97,7 @@ mod tests {
         let pc = config.plugin;
         assert_eq!(
             pc.default_action.response,
-            Some(Response { status: Some(401), body: None, header: None })
+            Some(Response { status: 401, body: None, header: None })
         );
 
         let mc = config.matcher;
@@ -120,8 +120,7 @@ mod tests {
         let cfg = r#"
             matcher:
               rules:
-                - name: get_foobar
-                  tests: []"#;
+                - name: rule1"#;
         let r = BufReader::new(cfg.as_bytes());
         let config: Config = serde_saphyr::from_reader(r)?;
 
@@ -134,7 +133,7 @@ mod tests {
         assert_eq!(mc.rules.len(), 1);
 
         let rule = mc.rules.first().unwrap();
-        assert_eq!(rule.name, "get_foobar");
+        assert_eq!(rule.name, "rule1");
         assert!(rule.action.is_none());
         Ok(())
     }
@@ -169,13 +168,21 @@ mod tests {
     }
 
     #[test]
+    fn test_unknown_name_rejected() {
+        let cfg = r#"
+            matcher:
+              rules:
+                - tests: []"#;
+        let result: Result<Config, _> = serde_saphyr::from_str(cfg);
+        assert!(result.is_err());
+    }
+
+    #[test]
     fn test_unknown_field_rejected() {
         let cfg = r#"
             matcher:
               rules:
                 - name: bad_rule
-                  tests:
-                    - request.method == 'GET'
                   unknown_field: oops"#;
         let result: Result<Config, _> = serde_saphyr::from_str(cfg);
         assert!(result.is_err());
@@ -226,12 +233,8 @@ mod tests {
             matcher:
               rules:
                 - name: rule_one
-                  tests:
-                    - request.method == 'GET'
                   action: *action1
                 - name: rule_two
-                  tests:
-                    - request.method == 'POST'
                   action: *action1"#;
         let config: Config = serde_saphyr::from_str(cfg)?;
         let mc = config.matcher;
@@ -261,9 +264,7 @@ mod tests {
             matcher:
               rules:
                 - name: disabled_rule
-                  disabled: true
-                  tests:
-                  - request.method == 'GET'"#;
+                  disabled: true"#;
         let config: Config = serde_saphyr::from_str(cfg)?;
         let mc = config.matcher;
         assert!(mc.rules[0].disabled);

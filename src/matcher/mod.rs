@@ -4,6 +4,8 @@ use crate::{
 };
 use anyhow::Result;
 use cel::{Context, Program, Value, extractors::This};
+use http_wasm_guest::host;
+use log::log;
 use std::sync::Arc;
 
 mod functions;
@@ -15,8 +17,8 @@ pub(crate) struct Matcher<'a> {
 }
 
 #[derive(Debug, PartialEq)]
-pub(crate) enum Outcome<'r, 'a> {
-    Match((&'r Request, &'a Rule)),
+pub(crate) enum Outcome<'a> {
+    Match(&'a Rule),
     NoMatch,
 }
 
@@ -29,12 +31,13 @@ impl<'a> Matcher<'a> {
         Matcher { context, config }
     }
 
-    pub(crate) fn evaluate<'r>(&self, request: &'r mut Request) -> Result<Outcome<'r, '_>> {
-        self.set_real_ip(request);
-        self.eval(request)
+    pub(crate) fn evaluate(&self, host_request: &host::Request) -> Result<Outcome<'_>> {
+        let mut request = Request::from(host_request);
+        self.set_real_ip(&mut request);
+        self.eval(&request)
     }
 
-    fn eval<'r>(&self, request: &'r Request) -> Result<Outcome<'r, '_>> {
+    fn eval(&self, request: &Request) -> Result<Outcome<'_>> {
         let mut context = self.context.new_inner_scope();
         context.add_variable_from_value("request", request.value());
 
@@ -42,7 +45,10 @@ impl<'a> Matcher<'a> {
             if !rule.disabled
                 && (rule.tests.is_empty() || rule.tests.iter().any(|p| is_match(p, &context)))
             {
-                return Ok(Outcome::Match((request, rule)));
+                if let Some(level) = rule.action.as_ref().and_then(|a| a.log.to_level()) {
+                    log!(level, "{} => {}", rule.name, request);
+                }
+                return Ok(Outcome::Match(rule));
             }
         }
         Ok(Outcome::NoMatch)
@@ -93,7 +99,12 @@ mod tests {
     fn test_disabled_rule_is_skipped() -> TestResult {
         let req = Request::get_request();
         let m = Matcher::new(Config {
-            rules: vec![Rule { disabled: true, ..Rule::default() }],
+            rules: vec![Rule {
+                name: "rule1".to_string(),
+                tests: vec![],
+                action: None,
+                disabled: true,
+            }],
             ..Config::default()
         });
         let out = m.eval(&req)?;
@@ -107,18 +118,22 @@ mod tests {
         let m = Matcher::new(Config {
             rules: vec![
                 Rule {
+                    name: "rule1".to_string(),
                     tests: vec![Program::compile("request.method == 'GET'")?],
-                    ..Rule::default()
+                    action: None,
+                    disabled: false,
                 },
                 Rule {
+                    name: "rule2".to_string(),
                     tests: vec![Program::compile("request.method == 'GET'")?],
-                    ..Rule::default()
+                    action: None,
+                    disabled: false,
                 },
             ],
             ..Config::default()
         });
         let out = m.eval(&req)?;
-        assert_eq!(Outcome::Match((&req, &m.config.rules[0])), out);
+        assert_eq!(Outcome::Match(&m.config.rules[0]), out);
         Ok(())
     }
 
@@ -136,8 +151,10 @@ mod tests {
         let req = Request::post_request();
         let m = Matcher::new(Config {
             rules: vec![Rule {
+                name: "rule1".to_string(),
                 tests: vec![Program::compile("request.method == 'GET'")?],
-                ..Rule::default()
+                action: None,
+                disabled: false,
             }],
             ..Config::default()
         });
@@ -151,13 +168,15 @@ mod tests {
         let req = Request::get_request();
         let m = Matcher::new(Config {
             rules: vec![Rule {
+                name: "rule1".to_string(),
                 tests: vec![Program::compile("request.headers.contains('user-agent')")?],
-                ..Rule::default()
+                action: None,
+                disabled: false,
             }],
             ..Config::default()
         });
         let out = m.eval(&req)?;
-        assert_eq!(Outcome::Match((&req, &m.config.rules[0])), out);
+        assert_eq!(Outcome::Match(&m.config.rules[0]), out);
         Ok(())
     }
     #[test]

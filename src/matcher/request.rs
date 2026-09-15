@@ -3,12 +3,12 @@ use cel::objects::{Key, KeyRef, Map, Value};
 use http_wasm_guest::host;
 use std::{collections::HashMap, fmt::Display, net::IpAddr, str::FromStr, sync::Arc};
 
-#[derive(Eq, PartialEq, Debug)]
-pub(crate) struct Request {
+#[derive(PartialEq, Debug)]
+pub(super) struct Request {
     path: Arc<String>,
     method: Arc<String>,
     version: Arc<String>,
-    headers: Value, //a Value::Map
+    headers: Map, //a Value::Map
     pub source_ip: Arc<String>,
 }
 static AGENT: KeyRef = KeyRef::String("user-agent");
@@ -16,11 +16,8 @@ static AGENT: KeyRef = KeyRef::String("user-agent");
 impl Display for Request {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{} \"{} {} {}\"", self.source_ip, self.method, self.path, self.version)?;
-        match &self.headers {
-            Value::Map(map) => match map.get(&AGENT) {
-                Some(Value::String(ua)) if !ua.is_empty() => write!(f, " \"{}\"", ua),
-                _ => write!(f, " -"),
-            },
+        match &self.headers.get(&AGENT) {
+            Some(Value::String(ua)) if !ua.is_empty() => write!(f, " \"{}\"", ua),
             _ => write!(f, " -"),
         }
     }
@@ -41,8 +38,8 @@ impl From<&host::Request> for Request {
 }
 
 /// Builds the CEL value for the request headers.
-fn header_value(header: &host::Header) -> Value {
-    Value::Map(Map {
+fn header_value(header: &host::Header) -> Map {
+    Map {
         map: Arc::new(
             header
                 .names_iter()
@@ -64,7 +61,7 @@ fn header_value(header: &host::Header) -> Value {
                 })
                 .collect(),
         ),
-    })
+    }
 }
 
 impl Request {
@@ -79,7 +76,7 @@ impl Request {
                 field("method", Value::String(self.method.clone())),
                 field("version", Value::String(self.version.clone())),
                 field("source_ip", Value::String(self.source_ip.clone())),
-                field("headers", self.headers.clone()),
+                field("headers", Value::Map(self.headers.clone())),
             ])),
         })
     }
@@ -141,7 +138,7 @@ impl Request {
 
 /// Builds a CEL header value from (name, values) test pairs.
 #[cfg(test)]
-fn test_headers(pairs: &[(&str, &[&str])]) -> Value {
+fn test_headers(pairs: &[(&str, &[&str])]) -> Map {
     let map = pairs
         .iter()
         .map(|(name, values)| {
@@ -157,7 +154,7 @@ fn test_headers(pairs: &[(&str, &[&str])]) -> Value {
             )
         })
         .collect();
-    Value::Map(Map { map: Arc::new(map) })
+    Map { map: Arc::new(map) }
 }
 
 #[cfg(test)]

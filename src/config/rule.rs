@@ -5,7 +5,7 @@ use serde::Deserialize;
 use serde_saphyr::RcAnchor;
 use std::collections::HashMap;
 
-#[derive(Deserialize, Default, Debug)]
+#[derive(Deserialize, Debug)]
 #[serde(deny_unknown_fields)]
 pub(crate) struct Rule {
     pub(crate) name: String,
@@ -35,10 +35,8 @@ pub(crate) struct Action {
 #[derive(Deserialize, Debug, PartialEq)]
 #[serde(deny_unknown_fields)]
 pub(crate) struct Response {
-    pub(crate) status: Option<i32>,
-    #[serde(default)]
+    pub(crate) status: i32,
     pub(crate) body: Option<String>,
-    #[serde(default)]
     pub(crate) header: Option<HashMap<String, String>>,
 }
 
