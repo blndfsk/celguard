@@ -16,12 +16,6 @@ pub(crate) struct Rule {
     pub(crate) action: Option<RcAnchor<Action>>,
 }
 
-impl PartialEq for Rule {
-    fn eq(&self, other: &Self) -> bool {
-        self.name == other.name
-    }
-}
-
 #[derive(Deserialize, Debug, PartialEq)]
 #[serde(deny_unknown_fields)]
 pub(crate) struct Action {

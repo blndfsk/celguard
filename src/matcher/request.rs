@@ -65,9 +65,6 @@ fn header_value(header: &host::Header) -> Map {
 }
 
 impl Request {
-    /// Builds the CEL value for this request. The header map was built once in
-    /// `From<&host::Request>`; only `Arc` reference counts are bumped here — no string
-    /// data is copied.
     pub(super) fn value(&self) -> Value {
         let field = |name: &str, value: Value| (Key::String(String::from(name).into()), value);
         Value::Map(Map {

@@ -16,7 +16,7 @@ pub(crate) struct Matcher<'a> {
     config: Config,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug)]
 pub(crate) enum Outcome<'a> {
     Match(&'a Rule),
     NoMatch,
@@ -83,6 +83,8 @@ fn is_match(program: &Program, context: &Context) -> bool {
 
 #[cfg(test)]
 mod tests {
+    use std::assert_matches;
+
     use crate::config::rule::Rule;
 
     use super::*;
@@ -108,7 +110,7 @@ mod tests {
             ..Config::default()
         });
         let out = m.eval(&req)?;
-        assert_eq!(Outcome::NoMatch, out);
+        assert_matches!(out, Outcome::NoMatch);
         Ok(())
     }
 
@@ -133,7 +135,7 @@ mod tests {
             ..Config::default()
         });
         let out = m.eval(&req)?;
-        assert_eq!(Outcome::Match(&m.config.rules[0]), out);
+        assert_matches!(out, Outcome::Match(rule) if rule.name == m.config.rules[0].name);
         Ok(())
     }
 
@@ -142,7 +144,7 @@ mod tests {
         let req = Request::get_request();
         let m = Matcher::new(Config::default());
         let out = m.eval(&req)?;
-        assert_eq!(Outcome::NoMatch, out);
+        assert_matches!(out, Outcome::NoMatch);
         Ok(())
     }
 
@@ -159,7 +161,7 @@ mod tests {
             ..Config::default()
         });
         let out = m.eval(&req)?;
-        assert_eq!(Outcome::NoMatch, out);
+        assert_matches!(out, Outcome::NoMatch);
         Ok(())
     }
 
@@ -176,7 +178,8 @@ mod tests {
             ..Config::default()
         });
         let out = m.eval(&req)?;
-        assert_eq!(Outcome::Match(&m.config.rules[0]), out);
+        assert_matches!(out, Outcome::Match(rule) if rule.name == m.config.rules[0].name);
+
         Ok(())
     }
     #[test]

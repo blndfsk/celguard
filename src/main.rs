@@ -61,9 +61,10 @@ fn main() {
         }
         Err(err) => {
             log::error!("Config {}", err);
-            let cause: &str = &err.root_cause().to_string();
-            for line in cause.split("\\n") {
-                log::error!("{}", line);
+            if err.source().is_some() {
+                for line in err.root_cause().to_string().split("\\n") {
+                    log::error!("{}", line);
+                }
             }
         }
     }

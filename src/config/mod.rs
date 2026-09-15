@@ -28,7 +28,9 @@ struct HostConfig {
 pub(crate) fn read() -> Result<Config> {
     let hc: HostConfig =
         serde_saphyr::from_slice(&host::admin::config()).context("failed to parse host config")?;
-    hc.config.map_or_else(|| read_from(&hc.paths), Ok)
+    let config = hc.config.map_or_else(|| read_from(&hc.paths), Ok)?;
+    config.matcher.validate()?;
+    Ok(config)
 }
 
 fn read_from(paths: &[PathBuf]) -> Result<Config> {
@@ -186,6 +188,18 @@ mod tests {
                   unknown_field: oops"#;
         let result: Result<Config, _> = serde_saphyr::from_str(cfg);
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_duplicate_rule_name_rejected() {
+        let cfg = r#"
+            matcher:
+              rules:
+                - name: same
+                - name: same"#;
+        let config: Config = serde_saphyr::from_str(cfg).unwrap();
+        let err = config.matcher.validate().unwrap_err();
+        assert_eq!(err.to_string(), "duplicate rule name: same");
     }
 
     #[test]
