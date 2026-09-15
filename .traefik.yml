@@ -9,6 +9,5 @@ testData:
     matcher:
       rules:
         - name: useragent
-          log: warn
           tests:
             - request.headers.contains('user-agent') == false

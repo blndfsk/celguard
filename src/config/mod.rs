@@ -68,25 +68,26 @@ mod tests {
 
     use testresult::TestResult;
 
+    use crate::config::rule::Response;
+
     use super::*;
 
     #[test]
     fn test_read_full() -> TestResult {
         let cfg = r#"
             plugin:
-              default_status: 401
+              default_action:
+                response: { status: 401 }
+            actions:
+              - &myjail
+                response: { status: 403, body: forbidden, header: {allow: 'GET'} }
+              - &response_without_body
+                response: { status: 400 }
             matcher:
               source_ip: request.source_ip
-              actions:
-                - &myjail
-                  response: { status: 403, body: forbidden, header: {allow: 'GET'} }
-                  continue: false
-                - &response_without_body
-                  response: { status: 400 }
               rules:
                 - name: get_foobar
                   disabled: false
-                  log: off
                   tests:
                     - request.method == "GET" && request.path.matches('^/api')
                   action: *myjail"#;
@@ -94,7 +95,10 @@ mod tests {
         let config: Config = serde_saphyr::from_reader(r)?;
 
         let pc = config.plugin;
-        assert_eq!(pc.default_status, 401);
+        assert_eq!(
+            pc.default_action.response,
+            Some(Response { status: Some(401), body: None, header: None })
+        );
 
         let mc = config.matcher;
 
@@ -122,7 +126,7 @@ mod tests {
         let config: Config = serde_saphyr::from_reader(r)?;
 
         let pc = config.plugin;
-        assert_eq!(pc.default_status, 400);
+        assert!(pc.default_action.response.is_some());
 
         let mc = config.matcher;
 
@@ -149,7 +153,6 @@ mod tests {
         assert_eq!(mc.rules.first().unwrap().name, "get_foobar");
         assert!(!mc.rules[0].disabled);
         assert!(mc.rules[0].action.is_none());
-        assert_eq!(mc.rules[0].log, log::LevelFilter::Off);
         Ok(())
     }
 
@@ -181,10 +184,10 @@ mod tests {
     #[test]
     fn test_action_default_continue_is_false() -> TestResult {
         let cfg = r#"
+            actions:
+              - &block
+                response: { status: 403 }
             matcher:
-              actions:
-                - &block
-                  response: { status: 403 }
               rules:
                 - name: test
                   action: *block"#;
@@ -217,10 +220,10 @@ mod tests {
     #[test]
     fn test_multiple_rules_same_action() -> TestResult {
         let cfg = r#"
+            actions:
+              - &action1
+                response: { status: 403 }
             matcher:
-              actions:
-                - &action1
-                  response: { status: 403 }
               rules:
                 - name: rule_one
                   tests:
@@ -264,21 +267,6 @@ mod tests {
         let config: Config = serde_saphyr::from_str(cfg)?;
         let mc = config.matcher;
         assert!(mc.rules[0].disabled);
-        Ok(())
-    }
-
-    #[test]
-    fn test_rule_with_log_level() -> TestResult {
-        let cfg = r#"
-            matcher:
-              rules:
-                - name: logged_rule
-                  log: info
-                  tests:
-                    - request.method == 'GET'"#;
-        let config: Config = serde_saphyr::from_str(cfg)?;
-        let mc = config.matcher;
-        assert_eq!(mc.rules[0].log, log::LevelFilter::Info);
         Ok(())
     }
 }

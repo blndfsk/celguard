@@ -1,13 +1,9 @@
 use crate::{
     config::{plugin, rule::Rule},
-    matcher::{Matcher, Outcome},
+    matcher::{Matcher, Outcome, request::Request},
 };
-use http_wasm_guest::{
-    Guest, HostLogger, HostLoggerConfig,
-    host::{Request, Response},
-    register,
-};
-use std::collections::HashMap;
+use http_wasm_guest::{Guest, HostLogger, HostLoggerConfig, host, register};
+use log::log;
 
 mod config;
 mod matcher;
@@ -20,10 +16,11 @@ struct Plugin<'a> {
 }
 
 impl<'a> Guest for Plugin<'a> {
-    fn handle_request(&self, request: &Request, response: &Response) -> (bool, i32) {
-        match self.matcher.evaluate(request) {
-            Ok(Outcome::Match(rule)) => self.execute(rule, response), //rule match
-            Ok(Outcome::NoMatch) => (true, 0),                        //no match - continue
+    fn handle_request(&self, request: &host::Request, response: &host::Response) -> (bool, i32) {
+        let mut cel_req = matcher::request::Request::from(request);
+        match self.matcher.evaluate(&mut cel_req) {
+            Ok(Outcome::Match((cel_req, rule))) => self.execute(cel_req, rule, response), //rule match
+            Ok(Outcome::NoMatch) => (true, 0), //no match - continue
             Err(err) => {
                 log::error!("Matcher: {}", err);
                 (true, 0)
@@ -33,37 +30,33 @@ impl<'a> Guest for Plugin<'a> {
 }
 
 impl<'a> Plugin<'a> {
-    fn execute(&self, rule: &Rule, response: &Response) -> (bool, i32) {
+    fn execute(&self, request: &Request, rule: &Rule, response: &host::Response) -> (bool, i32) {
         let action = match &rule.action {
             Some(anchor) => &anchor.0,
-            None => self.config.default_action(),
+            None => &self.config.default_action,
         };
-        if let Some(resp) = action.response.as_ref() {
-            self.write_header(response, &resp.header);
-            self.write_status(response, &resp.status);
-            self.write_body(response, &resp.body);
-        }
-        (action.r#continue, 0)
-    }
 
-    fn write_header(&self, response: &Response, header: &Option<HashMap<String, String>>) {
-        if let Some(map) = header {
+        let resp = action.response.as_ref();
+
+        if let Some(map) = resp.and_then(|r| r.header.as_ref()) {
             for (key, value) in map {
                 response.header.set(key.as_bytes(), value.as_bytes());
             }
         }
-    }
-    fn write_status(&self, response: &Response, status: &Option<i32>) {
-        response.set_status(status.unwrap_or(self.config.default_status));
-    }
-    fn write_body(&self, response: &Response, body: &Option<String>) {
-        if let Some(str) = body {
+
+        let status = resp.and_then(|r| r.status).unwrap_or(self.config.default_status);
+        response.set_status(status);
+
+        if let Some(str) = resp.and_then(|r| r.body.as_ref()) {
             response.body.write(str.as_bytes());
         }
+        if let Some(level) = action.log.to_level() {
+            log!(level, "{} => {} {}", rule.name, status, request);
+        }
+
+        (action.r#continue, 0)
     }
 }
-
-// order matters
 
 fn main() {
     let _ =

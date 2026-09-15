@@ -4,7 +4,7 @@ use http_wasm_guest::host;
 use std::{collections::HashMap, fmt::Display, net::IpAddr, str::FromStr, sync::Arc};
 
 #[derive(Eq, PartialEq, Debug)]
-pub(super) struct Request {
+pub(crate) struct Request {
     path: Arc<String>,
     method: Arc<String>,
     version: Arc<String>,

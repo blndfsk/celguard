@@ -4,12 +4,10 @@ use crate::{
 };
 use anyhow::Result;
 use cel::{Context, Program, Value, extractors::This};
-use http_wasm_guest::host;
-use log::log;
 use std::sync::Arc;
 
 mod functions;
-mod request;
+pub mod request;
 
 pub(crate) struct Matcher<'a> {
     context: Context<'a>,
@@ -17,8 +15,8 @@ pub(crate) struct Matcher<'a> {
 }
 
 #[derive(Debug, PartialEq)]
-pub(crate) enum Outcome<'a> {
-    Match(&'a Rule),
+pub(crate) enum Outcome<'r, 'a> {
+    Match((&'r Request, &'a Rule)),
     NoMatch,
 }
 
@@ -31,13 +29,12 @@ impl<'a> Matcher<'a> {
         Matcher { context, config }
     }
 
-    pub(crate) fn evaluate(&self, request: &host::Request) -> Result<Outcome<'_>> {
-        let mut request = Request::from(request);
-        self.set_real_ip(&mut request);
-        self.eval(&request)
+    pub(crate) fn evaluate<'r>(&self, request: &'r mut Request) -> Result<Outcome<'r, '_>> {
+        self.set_real_ip(request);
+        self.eval(request)
     }
 
-    fn eval(&self, request: &Request) -> Result<Outcome<'_>> {
+    fn eval<'r>(&self, request: &'r Request) -> Result<Outcome<'r, '_>> {
         let mut context = self.context.new_inner_scope();
         context.add_variable_from_value("request", request.value());
 
@@ -45,11 +42,7 @@ impl<'a> Matcher<'a> {
             if !rule.disabled
                 && (rule.tests.is_empty() || rule.tests.iter().any(|p| is_match(p, &context)))
             {
-                if let Some(level) = rule.log.to_level() {
-                    log!(level, "{} => {}", rule.name, request);
-                }
-
-                return Ok(Outcome::Match(rule));
+                return Ok(Outcome::Match((request, rule)));
             }
         }
         Ok(Outcome::NoMatch)
@@ -125,7 +118,7 @@ mod tests {
             ..Config::default()
         });
         let out = m.eval(&req)?;
-        assert_eq!(Outcome::Match(&m.config.rules[0]), out);
+        assert_eq!(Outcome::Match((&req, &m.config.rules[0])), out);
         Ok(())
     }
 
@@ -164,7 +157,7 @@ mod tests {
             ..Config::default()
         });
         let out = m.eval(&req)?;
-        assert_eq!(Outcome::Match(&m.config.rules[0]), out);
+        assert_eq!(Outcome::Match((&req, &m.config.rules[0])), out);
         Ok(())
     }
     #[test]

@@ -1,8 +1,11 @@
 # minimal example for a rule which matches on all requests and references an action without a response.
 # This will not modify the response in any way and continues with the processing.
+plugin:
+  default_action:
+    log: info
+    response: { status: 200 }
+    continue: true
+
 matcher:
   rules:
     - name: example
-      log: info
-      action:
-        continue: true
