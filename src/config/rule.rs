@@ -11,17 +11,30 @@ pub(crate) struct Rule {
     pub(crate) name: String,
     #[serde(default)]
     pub(crate) disabled: bool,
+    #[serde(default = "default_level", deserialize_with = "deserialize::deserialize_level")]
+    pub(crate) log: LevelFilter,
     #[serde(default, deserialize_with = "deserialize::deserialize_vec_program")]
     pub(crate) tests: Vec<Program>,
     pub(crate) action: Option<RcAnchor<Action>>,
 }
 
+impl Default for Rule {
+    fn default() -> Self {
+        Self {
+            name: Default::default(),
+            disabled: Default::default(),
+            log: LevelFilter::Off,
+            tests: Default::default(),
+            action: Default::default(),
+        }
+    }
+}
+
 #[derive(Deserialize, Debug, PartialEq)]
 #[serde(deny_unknown_fields)]
 pub(crate) struct Action {
+    #[serde(default)]
     pub(crate) response: Option<Response>,
-    #[serde(default = "default_level", deserialize_with = "deserialize::deserialize_level")]
-    pub(crate) log: LevelFilter,
     #[serde(default)]
     pub(crate) r#continue: bool,
 }

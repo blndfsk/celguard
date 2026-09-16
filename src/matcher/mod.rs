@@ -1,8 +1,8 @@
 use crate::{
-    config::{matcher::Config, rule::Rule},
+    config::{matcher::Config, rule::Action},
     matcher::request::Request,
 };
-use anyhow::Result;
+use anyhow::{Error, Result};
 use cel::{Context, Program, Value, extractors::This};
 use http_wasm_guest::host;
 use log::log;
@@ -18,7 +18,7 @@ pub(crate) struct Matcher<'a> {
 
 #[derive(Debug)]
 pub(crate) enum Outcome<'a> {
-    Match(&'a Rule),
+    Match(&'a Action),
     NoMatch,
 }
 
@@ -32,8 +32,10 @@ impl<'a> Matcher<'a> {
     }
 
     pub(crate) fn evaluate(&self, host_request: &host::Request) -> Result<Outcome<'_>> {
-        let mut request = Request::from(host_request);
-        self.set_real_ip(&mut request);
+        let mut request = Request::try_from(host_request)?;
+        if let Some(ip) = self.real_ip(&request)? {
+            request.source_ip = ip;
+        }
         self.eval(&request)
     }
 
@@ -45,24 +47,30 @@ impl<'a> Matcher<'a> {
             if !rule.disabled
                 && (rule.tests.is_empty() || rule.tests.iter().any(|p| is_match(p, &context)))
             {
-                if let Some(level) = rule.action.as_ref().and_then(|a| a.log.to_level()) {
+                let action =
+                    rule.action.as_ref().map_or(&self.config.default_action, |a| a.0.as_ref());
+
+                if let Some(level) = rule.log.to_level() {
                     log!(level, "{} => {}", rule.name, request);
                 }
-                return Ok(Outcome::Match(rule));
+
+                return Ok(Outcome::Match(action));
             }
         }
         Ok(Outcome::NoMatch)
     }
-    fn set_real_ip(&self, request: &mut Request) {
-        let mut context = self.context.new_inner_scope();
-        context.add_variable_from_value("request", request.value());
-
-        if let Some(source_ip) = &self.config.source_ip {
-            match source_ip.execute(&context) {
-                Ok(Value::String(s)) => request.source_ip = s,
-                Ok(val) => log::warn!("source_ip must return string: {:?}", val),
-                Err(e) => log::error!("{}", e),
+    fn real_ip(&self, request: &Request) -> Result<Option<Arc<String>>> {
+        match &self.config.source_ip {
+            Some(source_ip) => {
+                let mut context = self.context.new_inner_scope();
+                context.add_variable_from_value("request", request.value());
+                match source_ip.execute(&context) {
+                    Ok(Value::String(s)) => Ok(Some(s)),
+                    Ok(val) => anyhow::bail!("source_ip must return string: {:?}", val),
+                    Err(e) => Err(Error::from(e)),
+                }
             }
+            _ => Ok(None),
         }
     }
 }
@@ -83,11 +91,9 @@ fn is_match(program: &Program, context: &Context) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use std::assert_matches;
-
-    use crate::config::rule::Rule;
-
     use super::*;
+    use crate::config::rule::Rule;
+    use std::assert_matches;
     use testresult::TestResult;
 
     #[test]
@@ -106,6 +112,7 @@ mod tests {
                 tests: vec![],
                 action: None,
                 disabled: true,
+                log: log::LevelFilter::Off,
             }],
             ..Config::default()
         });
@@ -122,20 +129,18 @@ mod tests {
                 Rule {
                     name: "rule1".to_string(),
                     tests: vec![Program::compile("request.method == 'GET'")?],
-                    action: None,
-                    disabled: false,
+                    ..Default::default()
                 },
                 Rule {
                     name: "rule2".to_string(),
                     tests: vec![Program::compile("request.method == 'GET'")?],
-                    action: None,
-                    disabled: false,
+                    ..Default::default()
                 },
             ],
             ..Config::default()
         });
         let out = m.eval(&req)?;
-        assert_matches!(out, Outcome::Match(rule) if rule.name == m.config.rules[0].name);
+        assert_matches!(out, Outcome::Match(a) if a == &m.config.default_action);
         Ok(())
     }
 
@@ -155,8 +160,7 @@ mod tests {
             rules: vec![Rule {
                 name: "rule1".to_string(),
                 tests: vec![Program::compile("request.method == 'GET'")?],
-                action: None,
-                disabled: false,
+                ..Default::default()
             }],
             ..Config::default()
         });
@@ -172,26 +176,25 @@ mod tests {
             rules: vec![Rule {
                 name: "rule1".to_string(),
                 tests: vec![Program::compile("request.headers.contains('user-agent')")?],
-                action: None,
-                disabled: false,
+                ..Default::default()
             }],
             ..Config::default()
         });
         let out = m.eval(&req)?;
-        assert_matches!(out, Outcome::Match(rule) if rule.name == m.config.rules[0].name);
 
+        assert_matches!(out, Outcome::Match(a) if a == &m.config.default_action);
         Ok(())
     }
     #[test]
     fn test_source_ip() -> TestResult {
-        let mut req = Request::get_request();
+        let req = Request::get_request();
 
         let m = Matcher::new(Config {
             source_ip: Some(Program::compile("request.headers['x-real-ip']")?),
             ..Default::default()
         });
-        m.set_real_ip(&mut req);
-        assert_eq!(req.source_ip, "1.1.1.1".to_string().into());
+        let ip = m.real_ip(&req)?;
+        assert_eq!(ip.unwrap(), "1.1.1.1".to_string().into());
         Ok(())
     }
     #[test]

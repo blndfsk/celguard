@@ -78,31 +78,32 @@ mod tests {
     fn test_read_full() -> TestResult {
         let cfg = r#"
             plugin:
-              default_action:
-                response: { status: 401 }
+              error_action:
+                response: { status: 500 }
             actions:
               - &myjail
                 response: { status: 403, body: forbidden, header: {allow: 'GET'} }
               - &response_without_body
                 response: { status: 400 }
             matcher:
+              default_action:
+                response: { status: 401 }
               source_ip: request.source_ip
               rules:
                 - name: get_foobar
                   disabled: false
+                  log: info
                   tests:
                     - request.method == "GET" && request.path.matches('^/api')
                   action: *myjail"#;
         let r = BufReader::new(cfg.as_bytes());
         let config: Config = serde_saphyr::from_reader(r)?;
 
-        let pc = config.plugin;
+        let mc = config.matcher;
         assert_eq!(
-            pc.default_action.response,
+            mc.default_action.response,
             Some(Response { status: 401, body: None, header: None })
         );
-
-        let mc = config.matcher;
 
         assert!(mc.source_ip.is_some());
         assert_eq!(mc.rules.len(), 1);
@@ -126,10 +127,8 @@ mod tests {
         let r = BufReader::new(cfg.as_bytes());
         let config: Config = serde_saphyr::from_reader(r)?;
 
-        let pc = config.plugin;
-        assert!(pc.default_action.response.is_some());
-
         let mc = config.matcher;
+        assert!(mc.default_action.response.is_some());
 
         assert!(mc.source_ip.is_none());
         assert_eq!(mc.rules.len(), 1);

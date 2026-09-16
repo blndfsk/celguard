@@ -1,21 +1,19 @@
+use crate::config::rule::{Action, Response};
 use serde::Deserialize;
 
-use crate::config::rule::{Action, Response};
-
 #[derive(Deserialize, Debug)]
-#[serde(default)]
+#[serde(default, deny_unknown_fields)]
 pub(crate) struct Config {
-    pub(crate) default_action: Action,
+    pub(crate) error_action: Action,
 }
 
 impl Default for Config {
     fn default() -> Self {
-        Self { default_action: DEFAULT_ACTION }
+        Self { error_action: DEFAULT_ACTION }
     }
 }
 /// Default action used when a rule matches without an explicit action.
 const DEFAULT_ACTION: Action = Action {
-    response: Some(Response { status: 400, body: None, header: None }),
-    log: log::LevelFilter::Off,
+    response: Some(Response { status: 500, body: None, header: None }),
     r#continue: false,
 };

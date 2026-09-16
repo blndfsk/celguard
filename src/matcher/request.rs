@@ -23,17 +23,16 @@ impl Display for Request {
     }
 }
 
-impl From<&host::Request> for Request {
-    fn from(request: &host::Request) -> Self {
-        Request {
+impl TryFrom<&host::Request> for Request {
+    type Error = anyhow::Error;
+    fn try_from(request: &host::Request) -> Result<Self, Self::Error> {
+        Ok(Request {
             path: to_string(&request.uri()).into(),
             method: to_string(&request.method()).into(),
             version: to_string(&request.version()).into(),
-            source_ip: parse_socket_addr(&request.source_addr())
-                .map(|a| a.to_string().into())
-                .unwrap_or_default(),
+            source_ip: parse_socket_addr(&request.source_addr()).map(|a| a.to_string().into())?,
             headers: header_value(&request.header),
-        }
+        })
     }
 }
 
