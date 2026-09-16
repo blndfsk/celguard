@@ -40,6 +40,9 @@ impl<'a> Matcher<'a> {
     }
 
     fn eval(&self, request: &Request) -> Result<Outcome<'_>> {
+        if self.config.rules.is_empty() {
+            anyhow::bail!("no rules configured");
+        }
         let mut context = self.context.new_inner_scope();
         context.add_variable_from_value("request", request.value());
 
@@ -145,11 +148,11 @@ mod tests {
     }
 
     #[test]
-    fn test_no_rules_returns_no_match() -> TestResult {
+    fn test_no_rules_returns_err() -> TestResult {
         let req = Request::get_request();
         let m = Matcher::new(Config::default());
-        let out = m.eval(&req)?;
-        assert_matches!(out, Outcome::NoMatch);
+        let out = m.eval(&req);
+        assert!(out.is_err());
         Ok(())
     }
 

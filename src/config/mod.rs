@@ -11,7 +11,7 @@ pub(crate) mod matcher;
 pub(crate) mod plugin;
 pub(crate) mod rule;
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Default, Debug)]
 pub(crate) struct Config {
     #[serde(default)]
     pub(crate) plugin: plugin::Config,

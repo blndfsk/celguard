@@ -23,7 +23,6 @@ matcher:
         - request.path.matches('/\\.')
 
     - name: whitelist
-      log: info
       tests:
         - request.path == '/'
         - request.path == '/status'

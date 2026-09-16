@@ -1,8 +1,9 @@
 use crate::{
-    config::{plugin, rule::Action},
+    config::{Config, plugin, rule::Action},
     matcher::{Matcher, Outcome},
 };
 use http_wasm_guest::{Guest, HostLogger, HostLoggerConfig, host, register};
+use log::{error, warn};
 
 mod config;
 mod matcher;
@@ -14,13 +15,19 @@ struct Plugin<'a> {
     matcher: Matcher<'a>,
 }
 
+impl<'a> Plugin<'a> {
+    fn new(cfg: Config) -> Self {
+        Self { config: cfg.plugin, matcher: Matcher::new(cfg.matcher) }
+    }
+}
+
 impl<'a> Guest for Plugin<'a> {
     fn handle_request(&self, request: &host::Request, response: &host::Response) -> (bool, i32) {
         match self.matcher.evaluate(request) {
             Ok(Outcome::Match(action)) => execute(action, response), //rule match
             Ok(Outcome::NoMatch) => (true, 0),                       //no match - continue
             Err(err) => {
-                log::error!("Matcher: {}", err);
+                warn!("Matcher: {}", err);
                 execute(&self.config.error_action, response)
             }
         }
@@ -48,14 +55,14 @@ fn main() {
 
     match config::read() {
         Ok(config) => {
-            let plugin = Plugin { config: config.plugin, matcher: Matcher::new(config.matcher) };
-            register(plugin);
+            register(Plugin::new(config));
         }
         Err(err) => {
+            register(Plugin::new(Config::default()));
             log::error!("{}, {}", VERSION, err);
             if err.source().is_some() {
                 for line in err.root_cause().to_string().split("\\n") {
-                    log::error!("{}", line);
+                    error!("{}", line);
                 }
             }
         }
