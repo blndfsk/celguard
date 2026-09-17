@@ -87,12 +87,13 @@ fn parse_socket_addr(input: &[u8]) -> Result<String> {
     let s = str::from_utf8(input)?;
 
     // Check if it looks like an IPv6 address with a scope zone separator '%...]'
-    let addr = if let (Some(p), Some(b)) = (s.find('%'), s.rfind(']')) {
+    let addr = match s
+        .split_once('%')
+        .and_then(|(before, after)| after.split_once(']').map(|(_, tail)| (before, tail)))
+    {
         // Reconstruct the string omitting the "%scope" part
-        let clean = format!("{}{}", &s[..p], &s[b..]);
-        clean.parse::<SocketAddr>()
-    } else {
-        s.parse::<SocketAddr>()
+        Some((before, tail)) => format!("{}{}{}", before, ']', tail).parse::<SocketAddr>(),
+        None => s.parse::<SocketAddr>(),
     };
     addr.map(|a| a.ip()).map(|ip| ip.to_string()).map_err(Error::from)
 }
@@ -204,5 +205,7 @@ mod tests {
         assert!(parse_socket_addr(b"[::1").is_err()); // missing ']'
         assert!(parse_socket_addr(b"[]:80").is_err());
         assert!(parse_socket_addr(b"[not-ipv6]:80").is_err());
+        assert!(parse_socket_addr(b"foo%bar").is_err()); // '%' without ']'
+        assert!(parse_socket_addr(b"]:80%zone").is_err()); // ']' before '%'
     }
 }
