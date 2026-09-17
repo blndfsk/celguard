@@ -53,18 +53,17 @@ fn main() {
     let _ =
         HostLogger::init_with_config(HostLoggerConfig { with_target: true, ..Default::default() });
 
-    match config::read() {
-        Ok(config) => {
-            register(Plugin::new(config));
-        }
+    let config = match config::read() {
+        Ok(config) => config,
         Err(err) => {
-            register(Plugin::new(Config::default()));
             log::error!("{}, {}", VERSION, err);
             if err.source().is_some() {
                 for line in err.root_cause().to_string().split("\\n") {
                     error!("{}", line);
                 }
             }
+            Config::default()
         }
-    }
+    };
+    register(Plugin::new(config));
 }
