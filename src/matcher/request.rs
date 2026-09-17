@@ -1,12 +1,7 @@
 use anyhow::{Error, Result};
 use cel::objects::{Key, KeyRef, Map, Value};
 use http_wasm_guest::host;
-use std::{
-    collections::HashMap,
-    fmt::Display,
-    net::{IpAddr, SocketAddr},
-    sync::Arc,
-};
+use std::{collections::HashMap, fmt::Display, net::SocketAddr, sync::Arc};
 
 #[derive(PartialEq, Debug)]
 pub(super) struct Request {
@@ -88,18 +83,18 @@ fn to_string(input: &[u8]) -> String {
 /// Parses a socket address from the request source address.
 /// valid formats: `ipv4:port`, `[ipv6]:port`, `[ipv6%zone]:port`, `[ipv6]`
 /// returns the addr-part as a string
-fn parse_socket_addr(input: &[u8]) -> Result<IpAddr> {
+fn parse_socket_addr(input: &[u8]) -> Result<String> {
     let s = str::from_utf8(input)?;
 
-    // Check if it looks like an IPv6 address with a scope zone separator '%'
-    let addr = if let (Some(p), Some(b)) = (s.find('%'), s.find(']')) {
+    // Check if it looks like an IPv6 address with a scope zone separator '%...]'
+    let addr = if let (Some(p), Some(b)) = (s.find('%'), s.rfind(']')) {
         // Reconstruct the string omitting the "%scope" part
         let clean = format!("{}{}", &s[..p], &s[b..]);
         clean.parse::<SocketAddr>()
     } else {
         s.parse::<SocketAddr>()
     };
-    addr.map(|a| a.ip()).map_err(Error::from)
+    addr.map(|a| a.ip()).map(|ip| ip.to_string()).map_err(Error::from)
 }
 
 #[cfg(test)]
@@ -191,11 +186,11 @@ mod tests {
 
     #[test]
     fn test_parse_socket_addr() -> TestResult {
-        assert!(parse_socket_addr(b"127.0.0.1:80").map(|a| a.to_string() == "127.0.0.1")?);
-        assert!(parse_socket_addr(b"203.0.113.7:443").map(|a| a.to_string() == "203.0.113.7")?);
-        assert!(parse_socket_addr(b"[::1]:443").map(|a| a.to_string() == "::1")?);
-        assert!(parse_socket_addr(b"[2001:db8::1]:8080").map(|a| a.to_string() == "2001:db8::1")?);
-        assert!(parse_socket_addr(b"[fe80::1%eth0]:8080").map(|a| a.to_string() == "fe80::1")?);
+        assert!(parse_socket_addr(b"127.0.0.1:80")? == "127.0.0.1");
+        assert!(parse_socket_addr(b"203.0.113.7:443")? == "203.0.113.7");
+        assert!(parse_socket_addr(b"[::1]:443")? == "::1");
+        assert!(parse_socket_addr(b"[2001:db8::1]:8080")? == "2001:db8::1");
+        assert!(parse_socket_addr(b"[fe80::1%eth0]:8080")? == "fe80::1");
         Ok(())
     }
 
