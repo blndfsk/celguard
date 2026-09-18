@@ -31,11 +31,13 @@ impl Config {
 }
 impl Default for Config {
     fn default() -> Self {
-        Self { source_ip: None, default_action: DEFAULT_ACTION, rules: Vec::new() }
+        Self { source_ip: None, default_action: default_action(), rules: Vec::new() }
     }
 }
 /// Default action used when a rule matches without an explicit action.
-const DEFAULT_ACTION: Action = Action {
-    response: Some(Response { status: 400, body: None, header: None }),
-    r#continue: false,
-};
+fn default_action() -> Action {
+    Action {
+        response: Some(Response { status: 403, body: Some("blocked".into()), header: None }),
+        r#continue: false,
+    }
+}

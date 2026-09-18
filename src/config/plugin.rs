@@ -9,11 +9,11 @@ pub(crate) struct Config {
 
 impl Default for Config {
     fn default() -> Self {
-        Self { error_action: DEFAULT_ACTION }
+        Self {
+            error_action: Action {
+                response: Some(Response { status: 500, body: None, header: None }),
+                r#continue: false,
+            },
+        }
     }
 }
-/// Default action used when a rule matches without an explicit action.
-const DEFAULT_ACTION: Action = Action {
-    response: Some(Response { status: 500, body: None, header: None }),
-    r#continue: false,
-};
