@@ -34,6 +34,8 @@ impl<'a> Guest for Plugin<'a> {
     }
 }
 
+// write the response and return the action result
+// order is relevant: headers first, then status, then body
 fn execute(action: &Action, response: &host::Response) -> (bool, i32) {
     if let Some(resp) = action.response.as_ref() {
         if let Some(map) = resp.header.as_ref() {
